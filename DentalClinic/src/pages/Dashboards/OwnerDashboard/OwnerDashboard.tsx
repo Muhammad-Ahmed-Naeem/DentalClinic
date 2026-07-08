@@ -1,9 +1,12 @@
 import React from 'react';
-import { DollarSign, TrendingUp, Users, Activity } from 'lucide-react';
+import { DollarSign, TrendingUp, Users, Activity, Download } from 'lucide-react';
 import { Card, CardBody, CardTitle, CardHeader } from '../../../components/Card';
 import { Button } from '../../../components/Button';
+import { useToast } from '../../../components/Toast';
 
 export const OwnerDashboard = () => {
+  const { showToast } = useToast();
+  
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-8)' }}>
@@ -12,8 +15,8 @@ export const OwnerDashboard = () => {
           <p className="text-muted">High-level insights into clinic performance and financials.</p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-4)' }}>
-          <Button variant="outline">Export Data</Button>
-          <Button variant="primary">Generate Financial Report</Button>
+          <Button variant="outline" onClick={() => showToast('Exporting data...', 'info')}>Export Data</Button>
+          <Button variant="primary" onClick={() => showToast('Compiling executive summary. Download will begin shortly.', 'info')}>Generate Financial Report</Button>
         </div>
       </div>
 

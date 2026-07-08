@@ -9,6 +9,8 @@ import { Input } from '../../../components/Input';
 
 export const DentistTreatments = () => {
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editId, setEditId] = useState('');
   const [formData, setFormData] = useState({ patient: '', procedure: '', status: 'Completed', notes: '' });
 
   const [treatments, setTreatments] = useState([
@@ -21,17 +23,37 @@ export const DentistTreatments = () => {
     e.preventDefault();
     if (!formData.patient || !formData.procedure) return;
 
-    const newTreatment = {
-      id: `TR-${Math.floor(Math.random() * 900) + 100}`,
-      patient: formData.patient,
-      procedure: formData.procedure,
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      status: formData.status
-    };
+    if (isEditMode) {
+      setTreatments(treatments.map(t => 
+        t.id === editId ? { ...t, ...formData, date: t.date } : t
+      ));
+    } else {
+      const newTreatment = {
+        id: `TR-${Math.floor(Math.random() * 900) + 100}`,
+        patient: formData.patient,
+        procedure: formData.procedure,
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        status: formData.status
+      };
+      setTreatments([newTreatment, ...treatments]);
+    }
 
-    setTreatments([newTreatment, ...treatments]);
     setIsNoteModalOpen(false);
+    setIsEditMode(false);
+    setEditId('');
     setFormData({ patient: '', procedure: '', status: 'Completed', notes: '' });
+  };
+
+  const handleEditNote = (treatment: any) => {
+    setFormData({
+      patient: treatment.patient,
+      procedure: treatment.procedure,
+      status: treatment.status,
+      notes: 'Initial clinical notes retrieved.'
+    });
+    setIsEditMode(true);
+    setEditId(treatment.id);
+    setIsNoteModalOpen(true);
   };
 
   const columns = [
@@ -50,7 +72,7 @@ export const DentistTreatments = () => {
     { 
       header: 'Actions', 
       accessor: (row: any) => (
-        <Button variant="ghost" size="sm" leftIcon={<Edit3 size={14} />}>Edit Note</Button>
+        <Button variant="ghost" size="sm" leftIcon={<Edit3 size={14} />} onClick={() => handleEditNote(row)}>Edit Note</Button>
       )
     },
   ];
@@ -62,7 +84,13 @@ export const DentistTreatments = () => {
           <h1 className="h3">Treatment Notes</h1>
           <p className="text-muted">Document patient procedures and clinical findings.</p>
         </div>
-        <Button variant="primary" leftIcon={<Plus size={18} />} onClick={() => setIsNoteModalOpen(true)}>New Clinical Note</Button>
+        <Button variant="primary" leftIcon={<Plus size={18} />} onClick={() => {
+          setIsEditMode(false);
+          setFormData({ patient: '', procedure: '', status: 'Completed', notes: '' });
+          setIsNoteModalOpen(true);
+        }}>
+          New Clinical Note
+        </Button>
       </div>
 
       <Card>
@@ -77,7 +105,7 @@ export const DentistTreatments = () => {
       <Modal 
         isOpen={isNoteModalOpen} 
         onClose={() => setIsNoteModalOpen(false)} 
-        title="Add Clinical Note"
+        title={isEditMode ? "Edit Clinical Note" : "Add Clinical Note"}
         size="lg"
       >
         <form onSubmit={handleAddNote} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>

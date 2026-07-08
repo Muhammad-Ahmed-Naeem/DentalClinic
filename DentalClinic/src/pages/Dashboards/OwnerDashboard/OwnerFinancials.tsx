@@ -1,12 +1,15 @@
 import React from 'react';
-import { DollarSign, Download, Calendar } from 'lucide-react';
+import { DollarSign, Download, Calendar, Filter } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardBody } from '../../../components/Card';
 import { Button } from '../../../components/Button';
 import { RevenueChart } from '../../../components/Charts';
 import { Table } from '../../../components/Table';
 import { Badge } from '../../../components/Badge';
+import { useToast } from '../../../components/Toast';
 
 export const OwnerFinancials = () => {
+  const { showToast } = useToast();
+
   const chartData = [
     { name: 'Jan', revenue: 32000 },
     { name: 'Feb', revenue: 35000 },
@@ -18,10 +21,10 @@ export const OwnerFinancials = () => {
   ];
 
   const transactions = [
-    { id: 'TXN-8091', date: 'Oct 15, 2026', type: 'Insurance Claim', provider: 'BlueCross', amount: '+$1,250.00', status: 'Cleared' },
-    { id: 'TXN-8092', date: 'Oct 15, 2026', type: 'Patient Payment', provider: 'Credit Card (Visa)', amount: '+$150.00', status: 'Cleared' },
-    { id: 'TXN-8093', date: 'Oct 14, 2026', type: 'Vendor Payment', provider: 'DentalSupplies Inc', amount: '-$840.00', status: 'Pending' },
-    { id: 'TXN-8094', date: 'Oct 12, 2026', type: 'Payroll', provider: 'Staff Accounts', amount: '-$12,450.00', status: 'Cleared' },
+    { id: 'TXN-8091', date: 'Oct 15, 2026', type: 'Insurance Claim', provider: 'BlueCross', amount: '+$1,250.00', status: 'Cleared', period: 'October 2026' },
+    { id: 'TXN-8092', date: 'Oct 15, 2026', type: 'Patient Payment', provider: 'Credit Card (Visa)', amount: '+$150.00', status: 'Cleared', period: 'October 2026' },
+    { id: 'TXN-8093', date: 'Oct 14, 2026', type: 'Vendor Payment', provider: 'DentalSupplies Inc', amount: '-$840.00', status: 'Pending', period: 'October 2026' },
+    { id: 'TXN-8094', date: 'Oct 12, 2026', type: 'Payroll', provider: 'Staff Accounts', amount: '-$12,450.00', status: 'Cleared', period: 'October 2026' },
   ];
 
   const columns = [
@@ -44,7 +47,13 @@ export const OwnerFinancials = () => {
           {row.status}
         </Badge>
       )
-    }
+    },
+    { 
+      header: 'Actions', 
+      accessor: (row: any) => (
+        <Button variant="ghost" size="sm" leftIcon={<Download size={14} />} onClick={() => showToast(`Downloading report for ${row.period}...`, 'success')}>Download PDF</Button>
+      )
+    },
   ];
 
   return (
@@ -52,11 +61,11 @@ export const OwnerFinancials = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-8)' }}>
         <div>
           <h1 className="h3">Financial Reports</h1>
-          <p className="text-muted">Detailed view of clinic revenue, expenses, and cash flow.</p>
+          <p className="text-muted">Detailed breakdown of clinic revenue, expenses, and profitability.</p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-4)' }}>
-          <Button variant="outline" leftIcon={<Calendar size={18} />}>This Month</Button>
-          <Button variant="primary" leftIcon={<Download size={18} />}>Export CSV</Button>
+          <Button variant="outline" leftIcon={<Filter size={18} />} onClick={() => showToast('Financial filters applied.', 'info')}>Filter by Date</Button>
+          <Button variant="primary" leftIcon={<Download size={18} />} onClick={() => showToast('Exporting complete ledger...', 'info')}>Export Complete Ledger</Button>
         </div>
       </div>
 

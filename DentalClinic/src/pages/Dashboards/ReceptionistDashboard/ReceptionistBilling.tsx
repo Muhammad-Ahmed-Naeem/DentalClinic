@@ -6,8 +6,10 @@ import { Table } from '../../../components/Table';
 import { Input } from '../../../components/Input';
 import { Badge } from '../../../components/Badge';
 import { Modal } from '../../../components/Modal';
+import { useToast } from '../../../components/Toast';
 
 export const ReceptionistBilling = () => {
+  const { showToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [formData, setFormData] = useState({ patient: '', amount: '' });
@@ -71,7 +73,7 @@ export const ReceptionistBilling = () => {
               Collect
             </Button>
           ) : (
-            <Button variant="ghost" size="sm">Receipt</Button>
+            <Button variant="ghost" size="sm" onClick={() => showToast(`Receipt generated for ${row.id}.`, 'success')}>Receipt</Button>
           )}
         </div>
       )

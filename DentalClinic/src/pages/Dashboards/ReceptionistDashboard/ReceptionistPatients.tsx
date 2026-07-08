@@ -6,10 +6,14 @@ import { Table } from '../../../components/Table';
 import { Input } from '../../../components/Input';
 import { Badge } from '../../../components/Badge';
 import { Modal } from '../../../components/Modal';
+import { useToast } from '../../../components/Toast';
 
 export const ReceptionistPatients = () => {
+  const { showToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editId, setEditId] = useState('');
   const [formData, setFormData] = useState({ name: '', phone: '', email: '' });
 
   const [patients, setPatients] = useState([
@@ -22,18 +26,35 @@ export const ReceptionistPatients = () => {
     e.preventDefault();
     if (!formData.name || !formData.phone) return;
 
-    const newPatient = {
-      id: `PT-${Math.floor(Math.random() * 900) + 200}`,
-      name: formData.name,
-      phone: formData.phone,
-      email: formData.email,
-      lastVisit: 'New Patient',
-      status: 'Active'
-    };
+    if (isEditMode) {
+      setPatients(patients.map(p => 
+        p.id === editId ? { ...p, ...formData } : p
+      ));
+      showToast('Patient updated successfully.', 'success');
+    } else {
+      const newPatient = {
+        id: `PT-${Math.floor(Math.random() * 900) + 200}`,
+        name: formData.name,
+        phone: formData.phone,
+        email: formData.email,
+        lastVisit: 'New Patient',
+        status: 'Active'
+      };
+      setPatients([newPatient, ...patients]);
+      showToast('New patient registered successfully.', 'success');
+    }
 
-    setPatients([newPatient, ...patients]);
     setIsRegisterModalOpen(false);
+    setIsEditMode(false);
+    setEditId('');
     setFormData({ name: '', phone: '', email: '' });
+  };
+
+  const handleEditPatient = (patient: any) => {
+    setFormData({ name: patient.name, phone: patient.phone, email: patient.email });
+    setIsEditMode(true);
+    setEditId(patient.id);
+    setIsRegisterModalOpen(true);
   };
 
   const filteredPatients = patients.filter(pt => 
@@ -59,8 +80,8 @@ export const ReceptionistPatients = () => {
       header: 'Actions', 
       accessor: (row: any) => (
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <Button variant="ghost" size="sm">Edit</Button>
-          <Button variant="outline" size="sm">Book</Button>
+          <Button variant="ghost" size="sm" onClick={() => handleEditPatient(row)}>Edit</Button>
+          <Button variant="outline" size="sm" onClick={() => showToast(`Booking portal opened for ${row.name}.`, 'info')}>Book</Button>
         </div>
       )
     },
@@ -73,7 +94,13 @@ export const ReceptionistPatients = () => {
           <h1 className="h3">Patient Directory</h1>
           <p className="text-muted">Manage patient information and registration.</p>
         </div>
-        <Button variant="primary" leftIcon={<UserPlus size={18} />} onClick={() => setIsRegisterModalOpen(true)}>Register Patient</Button>
+        <Button variant="primary" leftIcon={<UserPlus size={18} />} onClick={() => {
+          setIsEditMode(false);
+          setFormData({ name: '', phone: '', email: '' });
+          setIsRegisterModalOpen(true);
+        }}>
+          Register Patient
+        </Button>
       </div>
 
       <Card>
@@ -95,7 +122,7 @@ export const ReceptionistPatients = () => {
       <Modal 
         isOpen={isRegisterModalOpen} 
         onClose={() => setIsRegisterModalOpen(false)} 
-        title="Register New Patient"
+        title={isEditMode ? "Edit Patient Details" : "Register New Patient"}
       >
         <form onSubmit={handleRegisterPatient} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           <Input 

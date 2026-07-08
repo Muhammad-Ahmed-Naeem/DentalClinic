@@ -4,8 +4,11 @@ import { Card, CardHeader, CardTitle, CardBody } from '../../../components/Card'
 import { Button } from '../../../components/Button';
 import { Input } from '../../../components/Input';
 import { Tabs } from '../../../components/Tabs';
+import { useToast } from '../../../components/Toast';
 
 export const AdminSettings = () => {
+  const { showToast } = useToast();
+
   const tabItems = [
     {
       id: 'general',
@@ -17,7 +20,7 @@ export const AdminSettings = () => {
             <Input label="Support Email" type="email" defaultValue="support@dentalcare.com" />
             <Input label="Contact Phone" type="tel" defaultValue="(555) 123-4567" />
             <div style={{ display: 'flex', gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
-              <Button variant="primary" leftIcon={<Save size={18} />}>Save Changes</Button>
+              <Button variant="primary" leftIcon={<Save size={18} />} onClick={() => showToast('Clinic settings updated.', 'success')}>Save Changes</Button>
             </div>
           </div>
         </div>
@@ -34,7 +37,7 @@ export const AdminSettings = () => {
                 <div style={{ fontWeight: 'var(--font-weight-medium)' }}>Two-Factor Authentication</div>
                 <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>Require 2FA for all admin accounts.</div>
               </div>
-              <Button variant="outline">Enable</Button>
+              <Button variant="outline" onClick={() => showToast('Two-Factor Authentication is now enabled.', 'success')}>Enable</Button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-4)', backgroundColor: 'var(--color-background)', borderRadius: 'var(--radius-md)' }}>
               <div>
@@ -65,7 +68,7 @@ export const AdminSettings = () => {
                   <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>Last backup: Today at 02:00 AM</div>
                 </div>
               </div>
-              <Button variant="primary">Run Backup</Button>
+              <Button variant="primary" onClick={() => showToast('Manual backup initiated. This may take a few minutes.', 'info')}>Run Backup</Button>
             </div>
           </div>
         </div>

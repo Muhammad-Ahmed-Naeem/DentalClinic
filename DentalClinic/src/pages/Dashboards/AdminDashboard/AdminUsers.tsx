@@ -6,10 +6,14 @@ import { Table } from '../../../components/Table';
 import { Input } from '../../../components/Input';
 import { Badge } from '../../../components/Badge';
 import { Modal } from '../../../components/Modal';
+import { useToast } from '../../../components/Toast';
 
 export const AdminUsers = () => {
+  const { showToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editId, setEditId] = useState('');
   const [formData, setFormData] = useState({ name: '', email: '', role: 'Patient' });
 
   const [users, setUsers] = useState([
@@ -23,17 +27,34 @@ export const AdminUsers = () => {
     e.preventDefault();
     if (!formData.name || !formData.email) return;
 
-    const newUser = {
-      id: `USR-00${users.length + 1}`,
-      name: formData.name,
-      email: formData.email,
-      role: formData.role,
-      status: 'Active'
-    };
+    if (isEditMode) {
+      setUsers(users.map(u => 
+        u.id === editId ? { ...u, ...formData } : u
+      ));
+      showToast('User updated successfully.', 'success');
+    } else {
+      const newUser = {
+        id: `USR-00${users.length + 1}`,
+        name: formData.name,
+        email: formData.email,
+        role: formData.role,
+        status: 'Active'
+      };
+      setUsers([newUser, ...users]);
+      showToast('User created successfully.', 'success');
+    }
 
-    setUsers([newUser, ...users]);
     setIsAddUserModalOpen(false);
+    setIsEditMode(false);
+    setEditId('');
     setFormData({ name: '', email: '', role: 'Patient' });
+  };
+
+  const handleEditUser = (user: any) => {
+    setFormData({ name: user.name, email: user.email, role: user.role });
+    setIsEditMode(true);
+    setEditId(user.id);
+    setIsAddUserModalOpen(true);
   };
 
   const handleToggleSuspend = (id: string) => {
@@ -75,7 +96,7 @@ export const AdminUsers = () => {
       header: 'Actions', 
       accessor: (row: any) => (
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <Button variant="ghost" size="sm">Edit</Button>
+          <Button variant="ghost" size="sm" onClick={() => handleEditUser(row)}>Edit</Button>
           <Button 
             variant="outline" 
             size="sm" 
@@ -99,7 +120,13 @@ export const AdminUsers = () => {
           <h1 className="h3">User Management</h1>
           <p className="text-muted">Manage system access, roles, and user accounts.</p>
         </div>
-        <Button variant="primary" leftIcon={<UserPlus size={18} />} onClick={() => setIsAddUserModalOpen(true)}>Add New User</Button>
+        <Button variant="primary" leftIcon={<UserPlus size={18} />} onClick={() => {
+          setIsEditMode(false);
+          setFormData({ name: '', email: '', role: 'Patient' });
+          setIsAddUserModalOpen(true);
+        }}>
+          Add New User
+        </Button>
       </div>
 
       <Card>
@@ -111,7 +138,7 @@ export const AdminUsers = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               iconLeft={<Search size={18} />}
             />
-            <Button variant="outline" leftIcon={<Filter size={18} />}>Filter Roles</Button>
+            <Button variant="outline" leftIcon={<Filter size={18} />} onClick={() => showToast('Role filter applied.', 'info')}>Filter Roles</Button>
           </div>
         </CardHeader>
         <div style={{ padding: '0 var(--space-4) var(--space-4)' }}>
@@ -122,7 +149,7 @@ export const AdminUsers = () => {
       <Modal 
         isOpen={isAddUserModalOpen} 
         onClose={() => setIsAddUserModalOpen(false)} 
-        title="Create System User"
+        title={isEditMode ? "Edit User" : "Create System User"}
       >
         <form onSubmit={handleAddUser} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           <Input 
