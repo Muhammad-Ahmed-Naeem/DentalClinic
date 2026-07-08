@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ShieldCheck, Clock, Award } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Clock, Award, Star } from 'lucide-react';
 import { Button } from '../../components/Button';
 import { Card, CardBody, CardTitle } from '../../components/Card';
 import styles from './Home.module.css';
@@ -89,6 +89,68 @@ export const Home = () => {
             <Link to="/services">
               <Button variant="secondary">View All Services</Button>
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section className={styles.servicesSection} style={{ backgroundColor: 'var(--color-background-alt)' }}>
+        <div className="container">
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>What Our Patients Say</h2>
+            <p className={styles.sectionSubtitle}>
+              Don't just take our word for it. Read about the experiences of our happy patients.
+            </p>
+          </div>
+          
+          <div className={styles.servicesGrid}>
+            <Card>
+              <CardBody>
+                <div style={{ display: 'flex', gap: 'var(--space-1)', color: 'var(--color-warning)', marginBottom: 'var(--space-3)' }}>
+                  <Star size={16} fill="currentColor" />
+                  <Star size={16} fill="currentColor" />
+                  <Star size={16} fill="currentColor" />
+                  <Star size={16} fill="currentColor" />
+                  <Star size={16} fill="currentColor" />
+                </div>
+                <p style={{ fontStyle: 'italic', marginBottom: 'var(--space-4)' }}>
+                  "The best dental experience I've ever had! Dr. Jenkins and the entire staff are so welcoming and professional. They completely cured my dental anxiety."
+                </p>
+                <div style={{ fontWeight: 'var(--font-weight-bold)' }}>- Sarah M.</div>
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardBody>
+                <div style={{ display: 'flex', gap: 'var(--space-1)', color: 'var(--color-warning)', marginBottom: 'var(--space-3)' }}>
+                  <Star size={16} fill="currentColor" />
+                  <Star size={16} fill="currentColor" />
+                  <Star size={16} fill="currentColor" />
+                  <Star size={16} fill="currentColor" />
+                  <Star size={16} fill="currentColor" />
+                </div>
+                <p style={{ fontStyle: 'italic', marginBottom: 'var(--space-4)' }}>
+                  "I came in for Invisalign consultation and was blown away by the state-of-the-art facility. Dr. Chen explained everything perfectly. Highly recommend!"
+                </p>
+                <div style={{ fontWeight: 'var(--font-weight-bold)' }}>- James T.</div>
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardBody>
+                <div style={{ display: 'flex', gap: 'var(--space-1)', color: 'var(--color-warning)', marginBottom: 'var(--space-3)' }}>
+                  <Star size={16} fill="currentColor" />
+                  <Star size={16} fill="currentColor" />
+                  <Star size={16} fill="currentColor" />
+                  <Star size={16} fill="currentColor" />
+                  <Star size={16} fill="currentColor" />
+                </div>
+                <p style={{ fontStyle: 'italic', marginBottom: 'var(--space-4)' }}>
+                  "Emily is the most gentle hygienist ever. My teeth cleaning was fast, painless, and my smile has never looked better. Thank you DentalCare!"
+                </p>
+                <div style={{ fontWeight: 'var(--font-weight-bold)' }}>- Elena R.</div>
+              </CardBody>
+            </Card>
           </div>
         </div>
       </section>

@@ -2,9 +2,11 @@ import React from 'react';
 import { ShieldCheck, Award, Clock, Heart, Sparkles, Stethoscope } from 'lucide-react';
 import { Card, CardBody, CardTitle, CardFooter } from '../../components/Card';
 import { Button } from '../../components/Button';
+import { useNavigate } from 'react-router-dom';
 import styles from './Services.module.css';
 
 export const Services = () => {
+  const navigate = useNavigate();
   return (
     <div className={`container animate-fade-in ${styles.servicesPage}`}>
       <div className={styles.pageHeader}>
@@ -25,7 +27,7 @@ export const Services = () => {
               <div className={styles.priceTag}>From $99</div>
             </CardBody>
             <CardFooter>
-              <Button variant="outline" fullWidth>Book Now</Button>
+              <Button variant="outline" fullWidth onClick={() => navigate('/register')}>Book Now</Button>
             </CardFooter>
           </Card>
 
@@ -37,7 +39,7 @@ export const Services = () => {
               <div className={styles.priceTag}>From $120</div>
             </CardBody>
             <CardFooter>
-              <Button variant="outline" fullWidth>Book Now</Button>
+              <Button variant="outline" fullWidth onClick={() => navigate('/register')}>Book Now</Button>
             </CardFooter>
           </Card>
         </div>
@@ -54,7 +56,7 @@ export const Services = () => {
               <div className={styles.priceTag}>From $250</div>
             </CardBody>
             <CardFooter>
-              <Button variant="outline" fullWidth>Book Now</Button>
+              <Button variant="outline" fullWidth onClick={() => navigate('/register')}>Book Now</Button>
             </CardFooter>
           </Card>
 
@@ -66,7 +68,7 @@ export const Services = () => {
               <div className={styles.priceTag}>From $800 / tooth</div>
             </CardBody>
             <CardFooter>
-              <Button variant="outline" fullWidth>Book Now</Button>
+              <Button variant="outline" fullWidth onClick={() => navigate('/register')}>Book Now</Button>
             </CardFooter>
           </Card>
         </div>
@@ -83,7 +85,7 @@ export const Services = () => {
               <div className={styles.priceTag}>Consultation Required</div>
             </CardBody>
             <CardFooter>
-              <Button variant="outline" fullWidth>Consultation</Button>
+              <Button variant="outline" fullWidth onClick={() => navigate('/register')}>Consultation</Button>
             </CardFooter>
           </Card>
 
@@ -95,7 +97,7 @@ export const Services = () => {
               <div className={styles.priceTag}>From $900</div>
             </CardBody>
             <CardFooter>
-              <Button variant="outline" fullWidth>Book Now</Button>
+              <Button variant="outline" fullWidth onClick={() => navigate('/register')}>Book Now</Button>
             </CardFooter>
           </Card>
         </div>

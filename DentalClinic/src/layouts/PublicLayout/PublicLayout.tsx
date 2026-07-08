@@ -1,10 +1,20 @@
 import React from 'react';
-import { Outlet, Link } from 'react-router-dom';
-import { Stethoscope } from 'lucide-react';
+import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Stethoscope, Send } from 'lucide-react';
 import { Button } from '../../components/Button';
+import { useToast } from '../../components/Toast';
 import styles from './PublicLayout.module.css';
 
 export const PublicLayout = () => {
+  const { showToast } = useToast();
+  const navigate = useNavigate();
+  
+  const handleNewsletter = (e: React.FormEvent) => {
+    e.preventDefault();
+    showToast('Subscribed to newsletter successfully!', 'success');
+    (e.target as HTMLFormElement).reset();
+  };
+
   return (
     <div className={styles.layout}>
       <header className={styles.header}>
@@ -52,18 +62,26 @@ export const PublicLayout = () => {
             <div className={styles.footerLinks}>
               <Link to="/services" className={styles.footerLink}>Our Services</Link>
               <Link to="/team" className={styles.footerLink}>Meet the Team</Link>
-              <Link to="/gallery" className={styles.footerLink}>Clinic Gallery</Link>
-              <Link to="/testimonials" className={styles.footerLink}>Testimonials</Link>
+              <Link to="/contact" className={styles.footerLink}>Contact Us</Link>
+              <Link to="/login" className={styles.footerLink}>Patient Portal</Link>
             </div>
           </div>
           <div>
-            <h4 className={styles.footerHeading}>Services</h4>
-            <div className={styles.footerLinks}>
-              <Link to="/services/cleaning" className={styles.footerLink}>Teeth Cleaning</Link>
-              <Link to="/services/whitening" className={styles.footerLink}>Teeth Whitening</Link>
-              <Link to="/services/implants" className={styles.footerLink}>Dental Implants</Link>
-              <Link to="/services/orthodontics" className={styles.footerLink}>Orthodontics</Link>
-            </div>
+            <h4 className={styles.footerHeading}>Newsletter</h4>
+            <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-3)' }}>
+              Subscribe for dental health tips and clinic updates.
+            </p>
+            <form onSubmit={handleNewsletter} style={{ display: 'flex', gap: 'var(--space-2)' }}>
+              <input 
+                type="email" 
+                placeholder="Email address" 
+                required 
+                style={{ flex: 1, padding: 'var(--space-2)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', backgroundColor: 'transparent', color: '#fff' }}
+              />
+              <Button type="submit" variant="primary" style={{ padding: 'var(--space-2)' }}>
+                <Send size={16} />
+              </Button>
+            </form>
           </div>
           <div>
             <h4 className={styles.footerHeading}>Contact Us</h4>

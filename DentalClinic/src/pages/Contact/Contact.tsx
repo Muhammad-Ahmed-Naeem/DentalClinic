@@ -2,9 +2,18 @@ import React from 'react';
 import { MapPin, Phone, Mail, Clock } from 'lucide-react';
 import { Input } from '../../components/Input';
 import { Button } from '../../components/Button';
+import { useToast } from '../../components/Toast';
 import styles from './Contact.module.css';
 
 export const Contact = () => {
+  const { showToast } = useToast();
+  
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    showToast('Your message has been sent successfully. We will get back to you soon!', 'success');
+    (e.target as HTMLFormElement).reset();
+  };
+
   return (
     <div className={`container animate-fade-in ${styles.contactPage}`}>
       <div className={styles.pageHeader}>
@@ -63,7 +72,7 @@ export const Contact = () => {
 
         <div className={styles.formCard}>
           <h2 className={styles.formTitle}>Send us a Message</h2>
-          <form onSubmit={(e) => e.preventDefault()}>
+          <form onSubmit={handleSendMessage}>
             <div className={styles.formGroup}>
               <Input label="Full Name" placeholder="John Doe" required />
             </div>
