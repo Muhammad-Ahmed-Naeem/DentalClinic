@@ -1,19 +1,46 @@
 import React, { useState } from 'react';
-import { Search, UserPlus, FileText } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardBody } from '../../../components/Card';
+import { Search, UserPlus } from 'lucide-react';
+import { Card, CardHeader } from '../../../components/Card';
 import { Button } from '../../../components/Button';
 import { Table } from '../../../components/Table';
 import { Input } from '../../../components/Input';
 import { Badge } from '../../../components/Badge';
+import { Modal } from '../../../components/Modal';
 
 export const ReceptionistPatients = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '' });
 
-  const patients = [
+  const [patients, setPatients] = useState([
     { id: 'PT-101', name: 'John Doe', phone: '(555) 123-4567', email: 'john.doe@example.com', lastVisit: 'Oct 15, 2026', status: 'Active' },
     { id: 'PT-102', name: 'Emily Chen', phone: '(555) 987-6543', email: 'emily.c@example.com', lastVisit: 'Sep 02, 2026', status: 'Active' },
     { id: 'PT-103', name: 'Michael Smith', phone: '(555) 456-7890', email: 'mike.smith@example.com', lastVisit: 'Jan 14, 2026', status: 'Inactive' },
-  ];
+  ]);
+
+  const handleRegisterPatient = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name || !formData.phone) return;
+
+    const newPatient = {
+      id: `PT-${Math.floor(Math.random() * 900) + 200}`,
+      name: formData.name,
+      phone: formData.phone,
+      email: formData.email,
+      lastVisit: 'New Patient',
+      status: 'Active'
+    };
+
+    setPatients([newPatient, ...patients]);
+    setIsRegisterModalOpen(false);
+    setFormData({ name: '', phone: '', email: '' });
+  };
+
+  const filteredPatients = patients.filter(pt => 
+    pt.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    pt.phone.includes(searchTerm) || 
+    pt.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const columns = [
     { header: 'Patient ID', accessor: 'id' as const },
@@ -46,7 +73,7 @@ export const ReceptionistPatients = () => {
           <h1 className="h3">Patient Directory</h1>
           <p className="text-muted">Manage patient information and registration.</p>
         </div>
-        <Button variant="primary" leftIcon={<UserPlus size={18} />}>Register Patient</Button>
+        <Button variant="primary" leftIcon={<UserPlus size={18} />} onClick={() => setIsRegisterModalOpen(true)}>Register Patient</Button>
       </div>
 
       <Card>
@@ -61,9 +88,46 @@ export const ReceptionistPatients = () => {
           </div>
         </CardHeader>
         <div style={{ padding: '0 var(--space-4) var(--space-4)' }}>
-          <Table data={patients} columns={columns} keyExtractor={(row) => row.id} />
+          <Table data={filteredPatients} columns={columns} keyExtractor={(row) => row.id} />
         </div>
       </Card>
+
+      <Modal 
+        isOpen={isRegisterModalOpen} 
+        onClose={() => setIsRegisterModalOpen(false)} 
+        title="Register New Patient"
+      >
+        <form onSubmit={handleRegisterPatient} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <Input 
+            label="Full Name" 
+            placeholder="John Doe" 
+            value={formData.name}
+            onChange={(e) => setFormData({...formData, name: e.target.value})}
+            required 
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <Input 
+              label="Phone Number" 
+              type="tel"
+              placeholder="(555) 000-0000" 
+              value={formData.phone}
+              onChange={(e) => setFormData({...formData, phone: e.target.value})}
+              required 
+            />
+            <Input 
+              label="Email Address" 
+              type="email"
+              placeholder="john@example.com" 
+              value={formData.email}
+              onChange={(e) => setFormData({...formData, email: e.target.value})}
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
+            <Button variant="outline" type="button" onClick={() => setIsRegisterModalOpen(false)}>Cancel</Button>
+            <Button variant="primary" type="submit">Create Patient File</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };
