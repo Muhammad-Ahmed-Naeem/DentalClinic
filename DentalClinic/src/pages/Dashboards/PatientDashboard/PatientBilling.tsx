@@ -6,9 +6,14 @@ import { Table } from '../../../components/Table';
 import { Badge } from '../../../components/Badge';
 import { Modal } from '../../../components/Modal';
 import { Input } from '../../../components/Input';
+import { useToast } from '../../../components/Toast';
 
 export const PatientBilling = () => {
+  const { showToast } = useToast();
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isInsuranceModalOpen, setIsInsuranceModalOpen] = useState(false);
+  const [insuranceProvider, setInsuranceProvider] = useState('BlueCross BlueShield');
+  const [insuranceForm, setInsuranceForm] = useState({ provider: '', memberId: '', groupNumber: '' });
   const [selectedInvoice, setSelectedInvoice] = useState<string>('');
   
   const [invoices, setInvoices] = useState([
@@ -51,12 +56,26 @@ export const PatientBilling = () => {
     { 
       header: 'Action', 
       accessor: (row: any) => (
-        <Button variant="ghost" size="sm" leftIcon={<Download size={14} />}>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          leftIcon={<Download size={14} />}
+          onClick={() => showToast(`Downloading receipt for ${row.id}...`, 'success')}
+        >
           Receipt
         </Button>
       )
     },
   ];
+
+  const handleUpdateInsurance = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (insuranceForm.provider) {
+      setInsuranceProvider(insuranceForm.provider);
+      showToast('Insurance information updated successfully.', 'success');
+      setIsInsuranceModalOpen(false);
+    }
+  };
 
   return (
     <div>
@@ -95,9 +114,12 @@ export const PatientBilling = () => {
             </div>
             <div>
               <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>Insurance on File</div>
-              <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 'var(--font-weight-bold)' }}>BlueCross BlueShield</div>
+              <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 'var(--font-weight-bold)' }}>{insuranceProvider}</div>
             </div>
           </CardBody>
+          <div style={{ padding: 'var(--space-4)', borderTop: '1px solid var(--color-border-light)', display: 'flex', justifyContent: 'flex-end' }}>
+            <Button variant="outline" size="sm" onClick={() => setIsInsuranceModalOpen(true)}>Update Insurance</Button>
+          </div>
         </Card>
       </div>
 
@@ -140,6 +162,40 @@ export const PatientBilling = () => {
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
             <Button variant="outline" type="button" onClick={() => setIsPaymentModalOpen(false)}>Cancel</Button>
             <Button variant="primary" type="submit">Pay Now</Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal 
+        isOpen={isInsuranceModalOpen} 
+        onClose={() => setIsInsuranceModalOpen(false)} 
+        title="Update Insurance"
+      >
+        <form onSubmit={handleUpdateInsurance} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <Input 
+            label="Insurance Provider" 
+            placeholder="e.g. BlueCross BlueShield" 
+            value={insuranceForm.provider}
+            onChange={(e) => setInsuranceForm({ ...insuranceForm, provider: e.target.value })}
+            required 
+          />
+          <Input 
+            label="Member ID" 
+            placeholder="e.g. ABC123456789" 
+            value={insuranceForm.memberId}
+            onChange={(e) => setInsuranceForm({ ...insuranceForm, memberId: e.target.value })}
+            required 
+          />
+          <Input 
+            label="Group Number" 
+            placeholder="e.g. 98765" 
+            value={insuranceForm.groupNumber}
+            onChange={(e) => setInsuranceForm({ ...insuranceForm, groupNumber: e.target.value })}
+          />
+          
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
+            <Button variant="outline" type="button" onClick={() => setIsInsuranceModalOpen(false)}>Cancel</Button>
+            <Button variant="primary" type="submit">Save Updates</Button>
           </div>
         </form>
       </Modal>

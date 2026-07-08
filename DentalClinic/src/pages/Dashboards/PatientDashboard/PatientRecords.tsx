@@ -3,9 +3,11 @@ import { FileText, Download, Activity, HeartPulse } from 'lucide-react';
 import { Card, CardBody, CardTitle, CardHeader } from '../../../components/Card';
 import { Button } from '../../../components/Button';
 import { Table } from '../../../components/Table';
-import { Badge } from '../../../components/Badge';
+import { useToast } from '../../../components/Toast';
 
 export const PatientRecords = () => {
+  const { showToast } = useToast();
+
   const records = [
     { id: 'r1', date: 'Apr 10, 2026', type: 'Treatment Plan', description: 'Teeth Cleaning & Polish', dentist: 'Dr. Sarah Jenkins' },
     { id: 'r2', date: 'Dec 15, 2025', type: 'X-Ray', description: 'Full Mouth Panoramic X-Ray', dentist: 'Dr. Michael Chen' },
@@ -18,9 +20,14 @@ export const PatientRecords = () => {
     { header: 'Description', accessor: 'description' as const },
     { header: 'Dentist', accessor: 'dentist' as const },
     { 
-      header: 'Action', 
+      header: 'Actions', 
       accessor: (row: any) => (
-        <Button variant="ghost" size="sm" leftIcon={<Download size={14} />}>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          leftIcon={<Download size={14} />}
+          onClick={() => showToast(`Downloading ${row.type}...`, 'success')}
+        >
           Download PDF
         </Button>
       )
@@ -32,9 +39,15 @@ export const PatientRecords = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-8)' }}>
         <div>
           <h1 className="h3">Medical Records</h1>
-          <p className="text-muted">Access your clinical notes, treatment plans, and X-rays.</p>
+          <p className="text-muted">Access your clinical history, x-rays, and treatment plans.</p>
         </div>
-        <Button variant="outline" leftIcon={<Download size={18} />}>Export Complete History</Button>
+        <Button 
+          variant="outline" 
+          leftIcon={<FileText size={18} />}
+          onClick={() => showToast('Compiling complete medical history. Download will begin shortly.', 'info')}
+        >
+          Export Complete History
+        </Button>
       </div>
 
       <div className="grid grid-cols-3 gap-6" style={{ marginBottom: 'var(--space-8)' }}>

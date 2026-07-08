@@ -7,10 +7,14 @@ import { Table } from '../../../components/Table';
 import { Tabs } from '../../../components/Tabs';
 import { Modal } from '../../../components/Modal';
 import { Input } from '../../../components/Input';
+import { useToast } from '../../../components/Toast';
 
 export const PatientAppointments = () => {
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState('upcoming');
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+  const [selectedNotes, setSelectedNotes] = useState('');
   const [formData, setFormData] = useState({ date: '', time: '', service: 'Teeth Cleaning' });
 
   // State for upcoming appointments
@@ -44,6 +48,16 @@ export const PatientAppointments = () => {
 
   const handleCancelAppointment = (id: string) => {
     setUpcomingAppointments(upcomingAppointments.filter(app => app.id !== id));
+    showToast('Appointment successfully canceled.', 'success');
+  };
+
+  const handleViewNotes = (service: string) => {
+    setSelectedNotes(`Clinical notes for ${service}:\nPatient arrived on time. Completed routine examination and cleaning. No signs of cavities. Gums appear healthy. Advised to continue flossing daily. Next recommended checkup in 6 months.`);
+    setIsNotesModalOpen(true);
+  };
+
+  const handleReschedule = () => {
+    setIsBookingModalOpen(true);
   };
 
   const columns = [
@@ -64,17 +78,20 @@ export const PatientAppointments = () => {
       accessor: (row: any) => (
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
           {row.status !== 'Completed' && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
-              onClick={() => handleCancelAppointment(row.id)}
-            >
-              Cancel
-            </Button>
+            <>
+              <Button variant="ghost" size="sm" onClick={handleReschedule}>Reschedule</Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
+                onClick={() => handleCancelAppointment(row.id)}
+              >
+                Cancel
+              </Button>
+            </>
           )}
           {row.status === 'Completed' && (
-            <Button variant="ghost" size="sm">View Notes</Button>
+            <Button variant="ghost" size="sm" onClick={() => handleViewNotes(row.service)}>View Notes</Button>
           )}
         </div>
       )
@@ -140,6 +157,13 @@ export const PatientAppointments = () => {
                     <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>123 Smile Boulevard, Suite 100</div>
                   </div>
                 </div>
+                <Button 
+                  variant="outline" 
+                  style={{ marginTop: 'var(--space-4)' }} 
+                  onClick={() => showToast('Event added to your calendar!', 'success')}
+                >
+                  Add to Calendar
+                </Button>
               </div>
             ) : (
               <p className="text-muted">No upcoming appointments.</p>
@@ -186,6 +210,19 @@ export const PatientAppointments = () => {
             <Button variant="primary" type="submit">Confirm Booking</Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal 
+        isOpen={isNotesModalOpen} 
+        onClose={() => setIsNotesModalOpen(false)} 
+        title="Clinical Notes"
+      >
+        <div style={{ padding: 'var(--space-4)', backgroundColor: 'var(--color-background)', borderRadius: 'var(--radius-md)', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+          {selectedNotes}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-4)' }}>
+          <Button variant="primary" onClick={() => setIsNotesModalOpen(false)}>Close</Button>
+        </div>
       </Modal>
     </div>
   );

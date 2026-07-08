@@ -8,6 +8,7 @@ import { Contact } from './pages/Contact';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { DashboardLayout } from './layouts/DashboardLayout';
+import { ToastProvider } from './components/Toast';
 import { 
   PatientDashboard, 
   PatientAppointments, 
@@ -36,53 +37,53 @@ import {
   OwnerStaff
 } from './pages/Dashboards/OwnerDashboard';
 
-
-
-function App() {
+const App = () => {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<PublicLayout />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/services" element={<Services />} />
-          <Route path="/team" element={<Team />} />
-          <Route path="/contact" element={<Contact />} />
-        </Route>
-        <Route element={<AuthLayout />}>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-        </Route>
-        <Route element={<DashboardLayout />}>
-          {/* Patient Routes */}
-          <Route path="/dashboard/patient" element={<PatientDashboard />} />
-          <Route path="/dashboard/patient/appointments" element={<PatientAppointments />} />
-          <Route path="/dashboard/patient/records" element={<PatientRecords />} />
-          <Route path="/dashboard/patient/billing" element={<PatientBilling />} />
-          
-          {/* Dentist Routes */}
-          <Route path="/dashboard/dentist" element={<DentistDashboard />} />
-          <Route path="/dashboard/dentist/patients" element={<DentistPatients />} />
-          <Route path="/dashboard/dentist/treatments" element={<DentistTreatments />} />
-          
-          {/* Receptionist Routes */}
-          <Route path="/dashboard/receptionist" element={<ReceptionistDashboard />} />
-          <Route path="/dashboard/receptionist/patients" element={<ReceptionistPatients />} />
-          <Route path="/dashboard/receptionist/billing" element={<ReceptionistBilling />} />
-          
-          {/* Admin Routes */}
-          <Route path="/dashboard/admin" element={<AdminDashboard />} />
-          <Route path="/dashboard/admin/users" element={<AdminUsers />} />
-          <Route path="/dashboard/admin/appointments" element={<AdminAppointments />} />
-          <Route path="/dashboard/admin/settings" element={<AdminSettings />} />
-          
-          {/* Owner Routes */}
-          <Route path="/dashboard/owner" element={<OwnerDashboard />} />
-          <Route path="/dashboard/owner/financials" element={<OwnerFinancials />} />
-          <Route path="/dashboard/owner/staff" element={<OwnerStaff />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <ToastProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<PublicLayout />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/services" element={<Services />} />
+            <Route path="/team" element={<Team />} />
+            <Route path="/contact" element={<Contact />} />
+          </Route>
+          <Route element={<AuthLayout />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+          </Route>
+          <Route element={<DashboardLayout />}>
+            {/* Patient Routes */}
+            <Route path="/dashboard/patient" element={<PatientDashboard />} />
+            <Route path="/dashboard/patient/appointments" element={<PatientAppointments />} />
+            <Route path="/dashboard/patient/records" element={<PatientRecords />} />
+            <Route path="/dashboard/patient/billing" element={<PatientBilling />} />
+            
+            {/* Dentist Routes */}
+            <Route path="/dashboard/dentist" element={<DentistDashboard />} />
+            <Route path="/dashboard/dentist/patients" element={<DentistPatients />} />
+            <Route path="/dashboard/dentist/treatments" element={<DentistTreatments />} />
+            
+            {/* Receptionist Routes */}
+            <Route path="/dashboard/receptionist" element={<ReceptionistDashboard />} />
+            <Route path="/dashboard/receptionist/patients" element={<ReceptionistPatients />} />
+            <Route path="/dashboard/receptionist/billing" element={<ReceptionistBilling />} />
+            
+            {/* Admin Routes */}
+            <Route path="/dashboard/admin" element={<AdminDashboard />} />
+            <Route path="/dashboard/admin/users" element={<AdminUsers />} />
+            <Route path="/dashboard/admin/appointments" element={<AdminAppointments />} />
+            <Route path="/dashboard/admin/settings" element={<AdminSettings />} />
+            
+            {/* Owner Routes */}
+            <Route path="/dashboard/owner" element={<OwnerDashboard />} />
+            <Route path="/dashboard/owner/financials" element={<OwnerFinancials />} />
+            <Route path="/dashboard/owner/staff" element={<OwnerStaff />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </ToastProvider>
   );
-}
+};
 
 export default App;
