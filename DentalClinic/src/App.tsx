@@ -8,11 +8,33 @@ import { Contact } from './pages/Contact';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { DashboardLayout } from './layouts/DashboardLayout';
-import { PatientDashboard } from './pages/Dashboards/PatientDashboard';
-import { DentistDashboard } from './pages/Dashboards/DentistDashboard';
-import { ReceptionistDashboard } from './pages/Dashboards/ReceptionistDashboard';
-import { AdminDashboard } from './pages/Dashboards/AdminDashboard';
-import { OwnerDashboard } from './pages/Dashboards/OwnerDashboard';
+import { 
+  PatientDashboard, 
+  PatientAppointments, 
+  PatientRecords, 
+  PatientBilling 
+} from './pages/Dashboards/PatientDashboard';
+import { 
+  DentistDashboard,
+  DentistPatients,
+  DentistTreatments
+} from './pages/Dashboards/DentistDashboard';
+import { 
+  ReceptionistDashboard,
+  ReceptionistPatients,
+  ReceptionistBilling
+} from './pages/Dashboards/ReceptionistDashboard';
+import { 
+  AdminDashboard,
+  AdminUsers,
+  AdminAppointments,
+  AdminSettings
+} from './pages/Dashboards/AdminDashboard';
+import { 
+  OwnerDashboard,
+  OwnerFinancials,
+  OwnerStaff
+} from './pages/Dashboards/OwnerDashboard';
 
 
 
@@ -31,11 +53,32 @@ function App() {
           <Route path="/register" element={<Register />} />
         </Route>
         <Route element={<DashboardLayout />}>
-          <Route path="/dashboard/patient/*" element={<PatientDashboard />} />
-          <Route path="/dashboard/dentist/*" element={<DentistDashboard />} />
-          <Route path="/dashboard/receptionist/*" element={<ReceptionistDashboard />} />
-          <Route path="/dashboard/admin/*" element={<AdminDashboard />} />
-          <Route path="/dashboard/owner/*" element={<OwnerDashboard />} />
+          {/* Patient Routes */}
+          <Route path="/dashboard/patient" element={<PatientDashboard />} />
+          <Route path="/dashboard/patient/appointments" element={<PatientAppointments />} />
+          <Route path="/dashboard/patient/records" element={<PatientRecords />} />
+          <Route path="/dashboard/patient/billing" element={<PatientBilling />} />
+          
+          {/* Dentist Routes */}
+          <Route path="/dashboard/dentist" element={<DentistDashboard />} />
+          <Route path="/dashboard/dentist/patients" element={<DentistPatients />} />
+          <Route path="/dashboard/dentist/treatments" element={<DentistTreatments />} />
+          
+          {/* Receptionist Routes */}
+          <Route path="/dashboard/receptionist" element={<ReceptionistDashboard />} />
+          <Route path="/dashboard/receptionist/patients" element={<ReceptionistPatients />} />
+          <Route path="/dashboard/receptionist/billing" element={<ReceptionistBilling />} />
+          
+          {/* Admin Routes */}
+          <Route path="/dashboard/admin" element={<AdminDashboard />} />
+          <Route path="/dashboard/admin/users" element={<AdminUsers />} />
+          <Route path="/dashboard/admin/appointments" element={<AdminAppointments />} />
+          <Route path="/dashboard/admin/settings" element={<AdminSettings />} />
+          
+          {/* Owner Routes */}
+          <Route path="/dashboard/owner" element={<OwnerDashboard />} />
+          <Route path="/dashboard/owner/financials" element={<OwnerFinancials />} />
+          <Route path="/dashboard/owner/staff" element={<OwnerStaff />} />
         </Route>
       </Routes>
     </BrowserRouter>
