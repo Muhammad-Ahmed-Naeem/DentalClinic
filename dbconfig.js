@@ -1,11 +1,28 @@
-import { MongoClient } from "mongodb";
+import mysql from 'mysql2/promise';
+import dotenv from 'dotenv';
 
-const url = "mongodb+srv://zohaib:Rni@1237ht4y@cluster0.3t4qoai.mongodb.net/?appName=Cluster0"
-const dbName = "dentalclinic"
-export const collectionName = "dentalclinic"
-const client = new MongoClient(url);
+dotenv.config();
 
-export const connection = async () => {
-    const connect = await client.connect();
-    return connect.db(dbName);
-}
+// Create a connection pool to automatically manage and reuse connections
+const pool = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
+
+// Test connection on startup
+(async () => {
+  try {
+    const connection = await pool.getConnection();
+    console.log('✅ Connected to MySQL database successfully.');
+    connection.release();
+  } catch (err) {
+    console.error('❌ Database connection failed:', err.message);
+  }
+})();
+
+export default pool;
