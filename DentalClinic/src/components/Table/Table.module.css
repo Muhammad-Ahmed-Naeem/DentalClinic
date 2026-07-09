@@ -1,9 +1,9 @@
 .tableContainer {
   width: 100%;
   overflow-x: auto;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .table {
@@ -13,28 +13,36 @@
 }
 
 .table th {
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-4) var(--space-5);
   color: var(--color-text-secondary);
-  font-weight: var(--font-weight-medium);
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   border-bottom: 1px solid var(--color-border-light);
-  background-color: var(--color-background);
-  font-size: var(--font-size-sm);
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.8) 0%, rgba(248, 250, 252, 0.4) 100%);
   white-space: nowrap;
 }
 
 .table td {
-  padding: var(--space-4);
+  padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--color-border-light);
   color: var(--color-text-primary);
   vertical-align: middle;
+  font-size: var(--font-size-sm);
 }
 
 .table tbody tr {
   transition: background-color var(--transition-fast);
 }
 
+.table tbody tr:nth-child(even) {
+  background-color: rgba(248, 250, 252, 0.5);
+}
+
 .table tbody tr:hover {
-  background-color: var(--color-background);
+  background-color: rgba(14, 165, 233, 0.04);
 }
 
 .table tbody tr:last-child td {

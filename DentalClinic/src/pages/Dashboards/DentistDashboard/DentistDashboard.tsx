@@ -1,9 +1,12 @@
 import React from 'react';
-import { Users, Calendar, Clock, Activity, ChevronRight, MessageSquare, Search } from 'lucide-react';
+import { Users, Calendar, Clock, Activity, MessageSquare, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardBody } from '../../../components/Card';
 import { Button } from '../../../components/Button';
+import { Badge } from '../../../components/Badge';
+import { StatWidget } from '../../../components/StatWidget';
 import { useToast } from '../../../components/Toast';
+import styles from '../Dashboard.module.css';
 
 export const DentistDashboard = () => {
   const navigate = useNavigate();
@@ -13,38 +16,42 @@ export const DentistDashboard = () => {
     showToast('You have 3 unread messages from patients.', 'info');
   };
 
+  const schedule = [
+    { time: '09:00 AM', patient: 'Emily Chen', status: 'Completed', type: 'Teeth Cleaning', variant: 'completed' as const, borderClass: styles.scheduleContentSuccess },
+    { time: '09:30 AM', patient: 'Michael Smith', status: 'Waiting', type: 'Root Canal Prep', variant: 'warning' as const, borderClass: styles.scheduleContentPrimary, active: true },
+    { time: '10:30 AM', patient: 'Sarah Williams', status: 'Scheduled', type: 'Cavity Filling', variant: 'scheduled' as const, borderClass: styles.scheduleContentWarning, muted: true },
+  ];
+
   return (
     <div>
-      <div style={{ marginBottom: 'var(--space-8)' }}>
-        <h1 className="h3">Good Morning, Dr. Jenkins</h1>
-        <p className="text-muted">You have 8 appointments scheduled for today.</p>
+      <div className={styles.dashboardHeader}>
+        <h1 className={styles.dashboardTitle}>Good Morning, Dr. Jenkins</h1>
+        <p className={styles.dashboardSubtitle}>You have 8 appointments scheduled for today.</p>
+      </div>
+
+      <div className="grid grid-cols-4 gap-6" style={{ marginBottom: 'var(--space-8)' }}>
+        <StatWidget label="Today's Appointments" value="8" icon={<Calendar size={22} />} iconVariant="primary" trend={{ value: '+12.4% this week', direction: 'up' }} sparkline={[4, 6, 5, 8, 7, 9, 8]} />
+        <StatWidget label="Patients Seen" value="5" icon={<Users size={22} />} iconVariant="success" trend={{ value: 'On track', direction: 'up' }} />
+        <StatWidget label="Pending Messages" value="3" icon={<MessageSquare size={22} />} iconVariant="warning" />
+        <StatWidget label="Avg. Wait Time" value="8 min" icon={<Clock size={22} />} iconVariant="primary" trend={{ value: '-15% vs last week', direction: 'up' }} />
       </div>
 
       <div className="grid grid-cols-3 gap-6" style={{ marginBottom: 'var(--space-8)' }}>
         <Card style={{ gridColumn: 'span 2' }}>
           <CardHeader style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <CardTitle>Up Next</CardTitle>
-            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-primary)', fontWeight: 'var(--font-weight-medium)' }}>In 15 mins</span>
+            <Badge variant="warning">In 15 mins</Badge>
           </CardHeader>
-          <CardBody style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <CardBody style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
             <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center' }}>
-              <div style={{ 
-                width: '60px', 
-                height: '60px', 
-                backgroundColor: 'var(--color-background)',
-                borderRadius: 'var(--radius-full)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--color-text-secondary)'
-              }}>
+              <div style={{ width: 60, height: 60, background: 'var(--gradient-primary-soft)', borderRadius: 'var(--radius-full)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)', border: '1px solid rgba(14, 165, 233, 0.15)' }}>
                 <Users size={24} />
               </div>
               <div>
-                <h3 style={{ margin: '0 0 var(--space-1) 0', fontSize: 'var(--font-size-lg)' }}>Michael Smith</h3>
-                <div style={{ display: 'flex', gap: 'var(--space-3)', color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}><Clock size={14} /> 09:30 AM</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}><Activity size={14} /> Root Canal Prep</span>
+                <h3 className={styles.appointmentTitle}>Michael Smith</h3>
+                <div className={styles.appointmentMeta}>
+                  <span className={styles.metaItem}><Clock size={14} /> 09:30 AM</span>
+                  <span className={styles.metaItem}><Activity size={14} /> Root Canal Prep</span>
                 </div>
               </div>
             </div>
@@ -53,10 +60,8 @@ export const DentistDashboard = () => {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardBody style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
+          <CardBody className={styles.quickActions}>
             <Button variant="ghost" style={{ justifyContent: 'flex-start' }} leftIcon={<Calendar size={18} />} onClick={() => navigate('/dashboard/dentist/treatments')}>View Schedule</Button>
             <Button variant="ghost" style={{ justifyContent: 'flex-start' }} leftIcon={<Search size={18} />} onClick={() => navigate('/dashboard/dentist/patients')}>Patient Search</Button>
             <Button variant="ghost" style={{ justifyContent: 'flex-start' }} leftIcon={<MessageSquare size={18} />} onClick={handleMessages}>Messages (3)</Button>
@@ -64,35 +69,26 @@ export const DentistDashboard = () => {
         </Card>
       </div>
 
-      <h2 className="h4" style={{ marginBottom: 'var(--space-4)' }}>Today's Schedule</h2>
+      <h2 className={styles.sectionTitle}>Today's Schedule</h2>
       <Card>
-        <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--color-border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center' }}>
-            <span style={{ fontWeight: 'var(--font-weight-bold)', width: '80px' }}>09:00 AM</span>
-            <div style={{ paddingLeft: 'var(--space-4)', borderLeft: '3px solid var(--color-success)' }}>
-              <p style={{ margin: 0, fontWeight: 'var(--font-weight-medium)' }}>Emily Chen</p>
-              <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>Completed • Teeth Cleaning</p>
+        {schedule.map((item, index) => (
+          <div
+            key={item.time}
+            className={`${styles.scheduleItem} ${item.active ? styles.scheduleItemActive : ''}`}
+            style={{ borderBottom: index < schedule.length - 1 ? undefined : 'none' }}
+          >
+            <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center', flex: 1 }}>
+              <span className={`${styles.scheduleTime} ${item.muted ? styles.scheduleTimeMuted : ''}`}>{item.time}</span>
+              <div className={`${styles.scheduleContent} ${item.borderClass}`}>
+                <p className={styles.schedulePatient}>{item.patient}</p>
+                <p className={styles.scheduleMeta}>
+                  <Badge variant={item.variant}>{item.status}</Badge>
+                  {' • '}{item.type}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-        <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--color-border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--color-primary-light)' }}>
-          <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center' }}>
-            <span style={{ fontWeight: 'var(--font-weight-bold)', width: '80px' }}>09:30 AM</span>
-            <div style={{ paddingLeft: 'var(--space-4)', borderLeft: '3px solid var(--color-primary)' }}>
-              <p style={{ margin: 0, fontWeight: 'var(--font-weight-medium)' }}>Michael Smith</p>
-              <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>Waiting • Root Canal Prep</p>
-            </div>
-          </div>
-        </div>
-        <div style={{ padding: 'var(--space-4)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center' }}>
-            <span style={{ fontWeight: 'var(--font-weight-bold)', width: '80px', color: 'var(--color-text-muted)' }}>10:30 AM</span>
-            <div style={{ paddingLeft: 'var(--space-4)', borderLeft: '3px solid var(--color-border)' }}>
-              <p style={{ margin: 0, fontWeight: 'var(--font-weight-medium)' }}>Sarah Williams</p>
-              <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>Scheduled • Cavity Filling</p>
-            </div>
-          </div>
-        </div>
+        ))}
       </Card>
     </div>
   );

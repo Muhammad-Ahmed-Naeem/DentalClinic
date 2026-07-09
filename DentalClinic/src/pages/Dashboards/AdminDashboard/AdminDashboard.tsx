@@ -3,7 +3,9 @@ import { Users, Calendar, Settings, Shield, Activity, Database, Server } from 'l
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardBody } from '../../../components/Card';
 import { Button } from '../../../components/Button';
+import { StatWidget } from '../../../components/StatWidget';
 import { useToast } from '../../../components/Toast';
+import styles from '../Dashboard.module.css';
 
 export const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -11,62 +13,27 @@ export const AdminDashboard = () => {
 
   return (
     <div>
-      <div style={{ marginBottom: 'var(--space-8)' }}>
-        <h1 className="h3">System Administration</h1>
-        <p className="text-muted">Manage system health, users, and global configurations.</p>
+      <div className={styles.dashboardHeader}>
+        <h1 className={styles.dashboardTitle}>System Administration</h1>
+        <p className={styles.dashboardSubtitle}>Manage system health, users, and global configurations.</p>
       </div>
 
       <div className="grid grid-cols-4 gap-6" style={{ marginBottom: 'var(--space-8)' }}>
-        <Card>
-          <CardBody style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center' }}>
-            <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-full)', backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Users size={24} />
-            </div>
-            <div>
-              <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>Total Users</div>
-              <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 'var(--font-weight-bold)' }}>1,248</div>
-            </div>
-          </CardBody>
-        </Card>
-        
-        <Card>
-          <CardBody style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center' }}>
-            <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-full)', backgroundColor: 'var(--color-success-light)', color: 'var(--color-success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Activity size={24} />
-            </div>
-            <div>
-              <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>System Uptime</div>
-              <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 'var(--font-weight-bold)' }}>99.9%</div>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardBody style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center' }}>
-            <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-full)', backgroundColor: 'var(--color-warning-light)', color: 'var(--color-warning)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Database size={24} />
-            </div>
-            <div>
-              <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>Storage Used</div>
-              <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 'var(--font-weight-bold)' }}>45%</div>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardBody style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+        <StatWidget label="Total Users" value="1,248" icon={<Users size={22} />} iconVariant="primary" trend={{ value: '+24 this month', direction: 'up' }} sparkline={[1100, 1150, 1180, 1200, 1220, 1240, 1248]} />
+        <StatWidget label="System Uptime" value="99.9%" icon={<Activity size={22} />} iconVariant="success" trend={{ value: 'All systems operational', direction: 'up' }} />
+        <StatWidget label="Storage Used" value="45%" icon={<Database size={22} />} iconVariant="warning" trend={{ value: '2.1 TB of 4.7 TB', direction: 'down' }} />
+        <Card hoverable>
+          <div style={{ padding: 'var(--space-5)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             <Button variant="outline" size="sm" leftIcon={<Server size={14} />} onClick={() => showToast('Connecting to log server...', 'info')}>System Logs</Button>
             <Button variant="outline" size="sm" leftIcon={<Shield size={14} />} onClick={() => navigate('/dashboard/admin/settings')}>Security</Button>
-          </CardBody>
+          </div>
         </Card>
       </div>
 
       <div className="grid grid-cols-2 gap-6">
         <Card>
-          <CardHeader>
-            <CardTitle>Quick Navigation</CardTitle>
-          </CardHeader>
-          <CardBody style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          <CardHeader><CardTitle>Quick Navigation</CardTitle></CardHeader>
+          <CardBody className={styles.quickActions}>
             <Button variant="ghost" style={{ justifyContent: 'flex-start' }} leftIcon={<Users size={18} />} onClick={() => navigate('/dashboard/admin/users')}>Manage Users & Roles</Button>
             <Button variant="ghost" style={{ justifyContent: 'flex-start' }} leftIcon={<Calendar size={18} />} onClick={() => navigate('/dashboard/admin/appointments')}>Global Appointments</Button>
             <Button variant="ghost" style={{ justifyContent: 'flex-start' }} leftIcon={<Settings size={18} />} onClick={() => navigate('/dashboard/admin/settings')}>System Settings</Button>
@@ -75,11 +42,9 @@ export const AdminDashboard = () => {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Recent Admin Activity</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Recent Admin Activity</CardTitle></CardHeader>
           <CardBody>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
               <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
                 <div style={{ paddingTop: 'var(--space-1)' }}><Shield size={16} style={{ color: 'var(--color-warning)' }} /></div>
                 <div>

@@ -2,7 +2,7 @@ import React from 'react';
 import styles from './Badge.module.css';
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: 'success' | 'warning' | 'danger' | 'primary' | 'default';
+  variant?: 'success' | 'warning' | 'danger' | 'primary' | 'default' | 'scheduled' | 'completed' | 'cancelled';
 }
 
 export const Badge: React.FC<BadgeProps> = ({ children, variant = 'default', className = '', ...props }) => {

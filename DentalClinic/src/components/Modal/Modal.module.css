@@ -1,58 +1,60 @@
 .overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  background: rgba(11, 15, 25, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: fadeIn var(--transition-fast) ease-out;
   padding: var(--space-4);
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: overlayFadeIn var(--transition-normal) ease-out;
 }
 
 .modal {
-  background-color: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl), 0 0 0 1px rgba(255, 255, 255, 0.05);
   width: 100%;
-  max-width: 500px;
+  max-width: 520px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  animation: slideUp var(--transition-normal) cubic-bezier(0.16, 1, 0.3, 1);
+  animation: modalScaleUp var(--transition-spring) cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
+  border: 1px solid var(--color-glass-border-light);
 }
 
 .modal.lg {
-  max-width: 800px;
+  max-width: 840px;
 }
 
 .header {
-  padding: var(--space-4) var(--space-6);
+  padding: var(--space-5) var(--space-6);
   border-bottom: 1px solid var(--color-border-light);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.8) 0%, transparent 100%);
 }
 
 .title {
+  font-family: var(--font-family-heading);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   margin: 0;
+  letter-spacing: -0.02em;
 }
 
 .closeButton {
-  background: none;
-  border: none;
+  background: var(--color-background);
+  border: 1px solid var(--color-border-light);
   color: var(--color-text-secondary);
   cursor: pointer;
   padding: var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -60,8 +62,9 @@
 }
 
 .closeButton:hover {
-  background-color: var(--color-background);
-  color: var(--color-text-primary);
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+  border-color: transparent;
 }
 
 .content {
@@ -75,22 +78,22 @@
   border-top: 1px solid var(--color-border-light);
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-4);
-  background-color: var(--color-background);
+  gap: var(--space-3);
+  background: linear-gradient(180deg, transparent 0%, rgba(248, 250, 252, 0.6) 100%);
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+@keyframes overlayFadeIn {
+  from { opacity: 0; backdrop-filter: blur(0); }
+  to { opacity: 1; backdrop-filter: blur(8px); }
 }
 
-@keyframes slideUp {
-  from { 
+@keyframes modalScaleUp {
+  from {
     opacity: 0;
-    transform: translateY(20px) scale(0.95);
+    transform: scale(0.92) translateY(16px);
   }
-  to { 
+  to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: scale(1) translateY(0);
   }
 }

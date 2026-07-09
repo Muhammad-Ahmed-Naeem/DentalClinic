@@ -1,0 +1,194 @@
+.dashboardHeader {
+  margin-bottom: var(--space-8);
+}
+
+.dashboardTitle {
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-1);
+}
+
+.dashboardSubtitle {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
+}
+
+.sectionTitle {
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-4);
+  letter-spacing: -0.01em;
+}
+
+.scheduleItem {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border-light);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background-color var(--transition-fast);
+}
+
+.scheduleItem:last-child {
+  border-bottom: none;
+}
+
+.scheduleItem:hover {
+  background-color: rgba(14, 165, 233, 0.03);
+}
+
+.scheduleItemActive {
+  background: var(--gradient-primary-soft);
+}
+
+.scheduleItemWarning {
+  background: var(--color-warning-pastel);
+}
+
+.scheduleTime {
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-bold);
+  width: 80px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.scheduleTimeMuted {
+  color: var(--color-text-muted);
+}
+
+.scheduleContent {
+  padding-left: var(--space-4);
+  border-left: 3px solid var(--color-border);
+  flex: 1;
+}
+
+.scheduleContentSuccess {
+  border-left-color: var(--color-success);
+}
+
+.scheduleContentPrimary {
+  border-left-color: var(--color-primary);
+}
+
+.scheduleContentWarning {
+  border-left-color: var(--color-warning);
+}
+
+.schedulePatient {
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+}
+
+.scheduleMeta {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.activityItem {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border-light);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background-color var(--transition-fast);
+}
+
+.activityItem:last-child {
+  border-bottom: none;
+}
+
+.activityItem:hover {
+  background-color: rgba(14, 165, 233, 0.03);
+}
+
+.activityIcon {
+  padding: var(--space-2);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.activityIconSuccess {
+  background: var(--color-success-pastel);
+  color: var(--color-success);
+}
+
+.activityIconPrimary {
+  background: var(--color-info-pastel);
+  color: var(--color-primary);
+}
+
+.dateBadge {
+  width: 64px;
+  height: 64px;
+  background: var(--gradient-primary-soft);
+  border: 1px solid rgba(14, 165, 233, 0.15);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary-dark);
+  flex-shrink: 0;
+}
+
+.dateBadgeMonth {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dateBadgeDay {
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-extrabold);
+  line-height: 1;
+}
+
+.appointmentTitle {
+  margin: 0 0 var(--space-1) 0;
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.appointmentMeta {
+  display: flex;
+  gap: var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.metaItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.quickActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-8);
+}
+
+.headerActions {
+  display: flex;
+  gap: var(--space-3);
+}

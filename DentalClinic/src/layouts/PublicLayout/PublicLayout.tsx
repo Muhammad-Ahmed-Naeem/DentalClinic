@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Outlet, Link } from 'react-router-dom';
 import { Stethoscope, Send } from 'lucide-react';
 import { Button } from '../../components/Button';
 import { useToast } from '../../components/Toast';
@@ -7,8 +7,7 @@ import styles from './PublicLayout.module.css';
 
 export const PublicLayout = () => {
   const { showToast } = useToast();
-  const navigate = useNavigate();
-  
+
   const handleNewsletter = (e: React.FormEvent) => {
     e.preventDefault();
     showToast('Subscribed to newsletter successfully!', 'success');
@@ -20,10 +19,12 @@ export const PublicLayout = () => {
       <header className={styles.header}>
         <div className={`container ${styles.navContainer}`}>
           <Link to="/" className={styles.logo}>
-            <Stethoscope size={28} color="var(--color-primary)" />
+            <div className={styles.logoIcon}>
+              <Stethoscope size={22} />
+            </div>
             DentalCare
           </Link>
-          
+
           <nav className={styles.navLinks}>
             <Link to="/" className={styles.navLink}>Home</Link>
             <Link to="/services" className={styles.navLink}>Services</Link>
@@ -32,8 +33,8 @@ export const PublicLayout = () => {
             <Link to="/faq" className={styles.navLink}>FAQ</Link>
             <Link to="/contact" className={styles.navLink}>Contact</Link>
           </nav>
-          
-          <div className="flex gap-4">
+
+          <div className={styles.navActions}>
             <Link to="/login">
               <Button variant="ghost">Login</Button>
             </Link>
@@ -52,10 +53,12 @@ export const PublicLayout = () => {
         <div className={`container ${styles.footerGrid}`}>
           <div>
             <div className={styles.logo} style={{ color: '#fff', marginBottom: 'var(--space-4)' }}>
-              <Stethoscope size={28} color="var(--color-primary-light)" />
+              <div className={styles.logoIcon}>
+                <Stethoscope size={22} />
+              </div>
               DentalCare
             </div>
-            <p className="text-muted">
+            <p className={styles.footerDesc}>
               Providing premium dental care for your entire family with modern technology and a gentle touch.
             </p>
           </div>
@@ -71,17 +74,17 @@ export const PublicLayout = () => {
           </div>
           <div>
             <h4 className={styles.footerHeading}>Newsletter</h4>
-            <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 'var(--space-3)' }}>
+            <p className={styles.footerDesc} style={{ marginBottom: 'var(--space-3)' }}>
               Subscribe for dental health tips and clinic updates.
             </p>
-            <form onSubmit={handleNewsletter} style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <input 
-                type="email" 
-                placeholder="Email address" 
-                required 
-                style={{ flex: 1, padding: 'var(--space-2)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', backgroundColor: 'transparent', color: '#fff' }}
+            <form onSubmit={handleNewsletter} className={styles.newsletterForm}>
+              <input
+                type="email"
+                placeholder="Email address"
+                required
+                className={styles.newsletterInput}
               />
-              <Button type="submit" variant="primary" style={{ padding: 'var(--space-2)' }}>
+              <Button type="submit" variant="primary" style={{ padding: 'var(--space-2) var(--space-3)' }}>
                 <Send size={16} />
               </Button>
             </form>

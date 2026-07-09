@@ -1,17 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  Stethoscope, 
-  Bell, 
-  Search, 
-  LogOut, 
-  Home, 
-  Calendar, 
-  FileText, 
+import {
+  Stethoscope,
+  Bell,
+  Search,
+  LogOut,
+  Home,
+  Calendar,
+  FileText,
   Settings,
   Users,
   CreditCard,
-  BarChart
+  BarChart,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import styles from './DashboardLayout.module.css';
 
@@ -64,58 +66,77 @@ const getNavItemsForRole = (role: string): NavItem[] => {
 export const DashboardLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  
-  // Extract role from path (e.g., /dashboard/patient -> patient)
+  const [collapsed, setCollapsed] = useState(false);
+
   const pathParts = location.pathname.split('/');
   const role = pathParts[2] || 'patient';
-  
   const navItems = getNavItemsForRole(role);
 
   const handleLogout = () => {
     navigate('/login');
   };
 
+  const isActive = (path: string) => location.pathname === path;
+
   return (
     <div className={styles.layout}>
-      <aside className={styles.sidebar}>
-        <Link to="/" className={styles.logo}>
-          <Stethoscope size={24} color="var(--color-primary)" />
-          DentalCare
-        </Link>
+      <aside className={`${styles.sidebar} ${collapsed ? styles.sidebarCollapsed : ''}`}>
+        <div className={styles.sidebarHeader}>
+          <Link to="/" className={styles.logo}>
+            <div className={styles.logoIcon}>
+              <Stethoscope size={22} />
+            </div>
+            {!collapsed && <span className={styles.logoText}>DentalCare</span>}
+          </Link>
+          <button
+            className={styles.collapseBtn}
+            onClick={() => setCollapsed(!collapsed)}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
+        </div>
+
         <nav className={styles.nav}>
           {navItems.map((item) => (
-            <Link 
-              key={item.path} 
-              to={item.path} 
-              className={`${styles.navItem} ${location.pathname === item.path ? styles.active : ''}`}
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`${styles.navItem} ${isActive(item.path) ? styles.active : ''}`}
+              title={collapsed ? item.label : undefined}
             >
-              {item.icon}
-              {item.label}
+              <span className={styles.navIcon}>{item.icon}</span>
+              {!collapsed && <span className={styles.navLabel}>{item.label}</span>}
             </Link>
           ))}
         </nav>
+
         <div className={styles.userProfile}>
           <div className={styles.avatar}>
             {role.charAt(0).toUpperCase()}
           </div>
-          <div className={styles.userInfo}>
-            <span className={styles.userName}>Test User</span>
-            <span className={styles.userRole}>{role}</span>
-          </div>
+          {!collapsed && (
+            <div className={styles.userInfo}>
+              <span className={styles.userName}>Test User</span>
+              <span className={styles.userRole}>{role}</span>
+            </div>
+          )}
         </div>
       </aside>
 
-      <main className={styles.main}>
+      <main className={`${styles.main} ${collapsed ? styles.mainCollapsed : ''}`}>
         <header className={styles.topbar}>
           <div className={styles.topbarTitle}>
-            {navItems.find(item => item.path === location.pathname)?.label || 'Dashboard'}
+            {navItems.find((item) => item.path === location.pathname)?.label || 'Dashboard'}
           </div>
           <div className={styles.topbarActions}>
-            <div className={styles.iconButton}>
-              <Search size={20} />
+            <div className={styles.searchBox}>
+              <Search size={18} />
+              <input type="text" placeholder="Search..." className={styles.searchInput} />
             </div>
             <div className={styles.iconButton}>
               <Bell size={20} />
+              <span className={styles.notificationDot} />
             </div>
             <div className={styles.iconButton} onClick={handleLogout} title="Logout">
               <LogOut size={20} />

@@ -1,9 +1,11 @@
 import React from 'react';
-import { Calendar, Clock, FileText, CreditCard, Activity, ChevronRight, Video, MessageSquare } from 'lucide-react';
+import { Calendar, Clock, FileText, CreditCard, Activity, Video, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardBody } from '../../../components/Card';
 import { Button } from '../../../components/Button';
+import { StatWidget } from '../../../components/StatWidget';
 import { useToast } from '../../../components/Toast';
+import styles from '../Dashboard.module.css';
 
 export const PatientDashboard = () => {
   const navigate = useNavigate();
@@ -20,9 +22,41 @@ export const PatientDashboard = () => {
 
   return (
     <div>
-      <div style={{ marginBottom: 'var(--space-8)' }}>
-        <h1 className="h3">Welcome back, John!</h1>
-        <p className="text-muted">Here is a summary of your dental health and upcoming visits.</p>
+      <div className={styles.dashboardHeader}>
+        <h1 className={styles.dashboardTitle}>Welcome back, John!</h1>
+        <p className={styles.dashboardSubtitle}>Here is a summary of your dental health and upcoming visits.</p>
+      </div>
+
+      <div className="grid grid-cols-4 gap-6" style={{ marginBottom: 'var(--space-8)' }}>
+        <StatWidget
+          label="Upcoming Visits"
+          value="2"
+          icon={<Calendar size={22} />}
+          iconVariant="primary"
+          trend={{ value: 'Next: Oct 15', direction: 'up' }}
+          sparkline={[3, 5, 4, 6, 5, 7, 6]}
+        />
+        <StatWidget
+          label="Outstanding Balance"
+          value="$0"
+          icon={<CreditCard size={22} />}
+          iconVariant="success"
+          trend={{ value: 'All paid up', direction: 'up' }}
+        />
+        <StatWidget
+          label="Records on File"
+          value="12"
+          icon={<FileText size={22} />}
+          iconVariant="warning"
+          sparkline={[2, 4, 3, 5, 4, 6, 5]}
+        />
+        <StatWidget
+          label="Health Score"
+          value="94%"
+          icon={<Activity size={22} />}
+          iconVariant="success"
+          trend={{ value: '+2% this month', direction: 'up' }}
+        />
       </div>
 
       <div className="grid grid-cols-3 gap-6" style={{ marginBottom: 'var(--space-8)' }}>
@@ -30,27 +64,17 @@ export const PatientDashboard = () => {
           <CardHeader>
             <CardTitle>Next Appointment</CardTitle>
           </CardHeader>
-          <CardBody style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <CardBody style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
             <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center' }}>
-              <div style={{ 
-                width: '60px', 
-                height: '60px', 
-                backgroundColor: 'var(--color-primary-light)',
-                borderRadius: 'var(--radius-lg)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--color-primary-dark)'
-              }}>
-                <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-bold)' }}>OCT</span>
-                <span style={{ fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-bold)' }}>15</span>
+              <div className={styles.dateBadge}>
+                <span className={styles.dateBadgeMonth}>OCT</span>
+                <span className={styles.dateBadgeDay}>15</span>
               </div>
               <div>
-                <h3 style={{ margin: '0 0 var(--space-1) 0', fontSize: 'var(--font-size-lg)' }}>Teeth Cleaning & Checkup</h3>
-                <div style={{ display: 'flex', gap: 'var(--space-3)', color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}><Clock size={14} /> 10:00 AM</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}><Activity size={14} /> Dr. Sarah Jenkins</span>
+                <h3 className={styles.appointmentTitle}>Teeth Cleaning & Checkup</h3>
+                <div className={styles.appointmentMeta}>
+                  <span className={styles.metaItem}><Clock size={14} /> 10:00 AM</span>
+                  <span className={styles.metaItem}><Activity size={14} /> Dr. Sarah Jenkins</span>
                 </div>
               </div>
             </div>
@@ -65,7 +89,7 @@ export const PatientDashboard = () => {
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
-          <CardBody style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          <CardBody className={styles.quickActions}>
             <Button variant="ghost" style={{ justifyContent: 'flex-start' }} leftIcon={<Calendar size={18} />} onClick={() => navigate('/dashboard/patient/appointments')}>Book Appointment</Button>
             <Button variant="ghost" style={{ justifyContent: 'flex-start' }} leftIcon={<MessageSquare size={18} />} onClick={handleMessage}>Message Dentist</Button>
             <Button variant="ghost" style={{ justifyContent: 'flex-start' }} leftIcon={<CreditCard size={18} />} onClick={() => navigate('/dashboard/patient/billing')}>Pay Bill</Button>
@@ -74,11 +98,11 @@ export const PatientDashboard = () => {
         </Card>
       </div>
 
-      <h2 className="h4" style={{ marginBottom: 'var(--space-4)' }}>Recent Activity</h2>
+      <h2 className={styles.sectionTitle}>Recent Activity</h2>
       <Card>
-        <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--color-border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className={styles.activityItem}>
           <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
-            <div style={{ padding: 'var(--space-2)', backgroundColor: 'var(--color-success-light)', color: 'var(--color-success)', borderRadius: 'var(--radius-full)' }}>
+            <div className={`${styles.activityIcon} ${styles.activityIconSuccess}`}>
               <CreditCard size={16} />
             </div>
             <div>
@@ -88,9 +112,9 @@ export const PatientDashboard = () => {
           </div>
           <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)' }}>Yesterday</span>
         </div>
-        <div style={{ padding: 'var(--space-4)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className={styles.activityItem}>
           <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
-            <div style={{ padding: 'var(--space-2)', backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)', borderRadius: 'var(--radius-full)' }}>
+            <div className={`${styles.activityIcon} ${styles.activityIconPrimary}`}>
               <FileText size={16} />
             </div>
             <div>
