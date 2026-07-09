@@ -28,6 +28,8 @@ export const PublicLayout = () => {
             <Link to="/" className={styles.navLink}>Home</Link>
             <Link to="/services" className={styles.navLink}>Services</Link>
             <Link to="/team" className={styles.navLink}>Our Team</Link>
+            <Link to="/gallery" className={styles.navLink}>Gallery</Link>
+            <Link to="/faq" className={styles.navLink}>FAQ</Link>
             <Link to="/contact" className={styles.navLink}>Contact</Link>
           </nav>
           
@@ -62,8 +64,9 @@ export const PublicLayout = () => {
             <div className={styles.footerLinks}>
               <Link to="/services" className={styles.footerLink}>Our Services</Link>
               <Link to="/team" className={styles.footerLink}>Meet the Team</Link>
+              <Link to="/gallery" className={styles.footerLink}>Gallery</Link>
+              <Link to="/faq" className={styles.footerLink}>FAQ</Link>
               <Link to="/contact" className={styles.footerLink}>Contact Us</Link>
-              <Link to="/login" className={styles.footerLink}>Patient Portal</Link>
             </div>
           </div>
           <div>

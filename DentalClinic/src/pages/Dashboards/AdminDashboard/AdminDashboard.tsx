@@ -70,7 +70,7 @@ export const AdminDashboard = () => {
             <Button variant="ghost" style={{ justifyContent: 'flex-start' }} leftIcon={<Users size={18} />} onClick={() => navigate('/dashboard/admin/users')}>Manage Users & Roles</Button>
             <Button variant="ghost" style={{ justifyContent: 'flex-start' }} leftIcon={<Calendar size={18} />} onClick={() => navigate('/dashboard/admin/appointments')}>Global Appointments</Button>
             <Button variant="ghost" style={{ justifyContent: 'flex-start' }} leftIcon={<Settings size={18} />} onClick={() => navigate('/dashboard/admin/settings')}>System Settings</Button>
-            <Button variant="ghost" style={{ justifyContent: 'flex-start' }} leftIcon={<Activity size={18} />} onClick={() => showToast('CMS loaded.', 'success')}>Manage Content</Button>
+            <Button variant="ghost" style={{ justifyContent: 'flex-start' }} leftIcon={<Activity size={18} />} onClick={() => navigate('/dashboard/admin/cms')}>Manage Content</Button>
           </CardBody>
         </Card>
 

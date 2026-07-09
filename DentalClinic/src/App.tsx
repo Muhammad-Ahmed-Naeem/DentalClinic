@@ -5,7 +5,9 @@ import { Home } from './pages/Home';
 import { Services } from './pages/Services';
 import { Team } from './pages/Team';
 import { Contact } from './pages/Contact';
-import { Login } from './pages/Login';
+import { FAQ } from './pages/FAQ';
+import { Gallery } from './pages/Gallery';
+import { Login, ForgotPassword } from './pages/Login';
 import { Register } from './pages/Register';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { ToastProvider } from './components/Toast';
@@ -29,7 +31,8 @@ import {
   AdminDashboard,
   AdminUsers,
   AdminAppointments,
-  AdminSettings
+  AdminSettings,
+  AdminCMS
 } from './pages/Dashboards/AdminDashboard';
 import { 
   OwnerDashboard,
@@ -47,10 +50,13 @@ const App = () => {
             <Route path="/services" element={<Services />} />
             <Route path="/team" element={<Team />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/faq" element={<FAQ />} />
+            <Route path="/gallery" element={<Gallery />} />
           </Route>
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
           </Route>
           <Route element={<DashboardLayout />}>
             {/* Patient Routes */}
@@ -74,6 +80,7 @@ const App = () => {
             <Route path="/dashboard/admin/users" element={<AdminUsers />} />
             <Route path="/dashboard/admin/appointments" element={<AdminAppointments />} />
             <Route path="/dashboard/admin/settings" element={<AdminSettings />} />
+            <Route path="/dashboard/admin/cms" element={<AdminCMS />} />
             
             {/* Owner Routes */}
             <Route path="/dashboard/owner" element={<OwnerDashboard />} />
