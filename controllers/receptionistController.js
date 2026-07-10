@@ -7,7 +7,7 @@ export const getDashboard = async (req, res) => {
   const receptionistId = req.user.id;
   try {
     const [todayAppts] = await pool.execute(
-      `SELECT a.id, a.patient_id, a.dentist_id, a.service, a.appointment_date, a.appointment_time, a.status,
+      `SELECT a.id, a.patient_id, a.dentist_id, a.service, a.appointment_date, a.appointment_time, a.queue_number, a.status,
               u.name AS patient_name, d.name AS dentist_name
        FROM appointments a
        LEFT JOIN users u ON a.patient_id = u.id
@@ -55,24 +55,115 @@ export const getAppointments = async (req, res) => {
 };
 
 export const createAppointment = async (req, res) => {
-  const { patient_id, dentist_id, service, appointment_date, appointment_time, notes } = req.body;
-  if (!patient_id || !dentist_id || !service || !appointment_date || !appointment_time) {
-    return res.status(400).json({ status: 'error', message: 'patient_id, dentist_id, service, appointment_date, and appointment_time are required.' });
+  const { patient_id, patient_name, dentist_id, service, schedule_id, appointment_date, appointment_time, notes } = req.body;
+  if (!dentist_id || !service || !appointment_date || !appointment_time) {
+    return res.status(400).json({ status: 'error', message: 'dentist_id, service, appointment_date, and appointment_time are required.' });
+  }
+  if (!patient_id && !patient_name) {
+    return res.status(400).json({ status: 'error', message: 'Either patient_id or patient_name is required.' });
   }
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+
+    let finalPatientId = patient_id;
+
+    if (!finalPatientId || finalPatientId === 0) {
+      if (!patient_name || !patient_name.trim()) {
+        await conn.rollback();
+        return res.status(400).json({ status: 'error', message: 'Patient name is required for walk-in patients.' });
+      }
+      const timestamp = Date.now();
+      const autoEmail = `walkin-${timestamp}@clinic.local`;
+      const autoPassword = Math.random().toString(36).slice(-8);
+      const bcrypt = await import('bcrypt');
+      const hashedPassword = await bcrypt.hash(autoPassword, 10);
+      const [patientResult] = await conn.execute(
+        'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
+        [patient_name.trim(), autoEmail, hashedPassword, 'patient']
+      );
+      finalPatientId = patientResult.insertId;
+    }
+
+    if (schedule_id) {
+      const [schedRows] = await conn.execute(
+        'SELECT id, dentist_id, day, time, max_patients, confirmed_count, status FROM schedules WHERE id = ? FOR UPDATE',
+        [schedule_id]
+      );
+      if (!schedRows.length) {
+        await conn.rollback();
+        return res.status(404).json({ status: 'error', message: 'Selected schedule slot not found.' });
+      }
+      const slot = schedRows[0];
+      if (slot.dentist_id !== Number(dentist_id)) {
+        await conn.rollback();
+        return res.status(400).json({ status: 'error', message: 'Selected dentist does not match schedule slot.' });
+      }
+      if (slot.status !== 'available') {
+        await conn.rollback();
+        return res.status(409).json({ status: 'error', message: 'Selected schedule slot is not available.' });
+      }
+      if (slot.confirmed_count >= slot.max_patients) {
+        await conn.rollback();
+        return res.status(409).json({ status: 'error', message: 'This slot is fully booked.' });
+      }
+    }
+
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const appointmentDay = dayNames[new Date(appointment_date).getDay()];
+
     const [result] = await conn.execute(
       `INSERT INTO appointments (schedule_id, patient_id, dentist_id, service, appointment_day, appointment_date, appointment_time, status, notes)
-       VALUES (NULL, ?, ?, ?, ?, ?, ?, 'Confirmed', ?)`,
-      [patient_id, dentist_id, service, appointmentDay, appointment_date, appointment_time, notes || null]
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'Confirmed', ?)`,
+      [schedule_id || null, finalPatientId, dentist_id, service, appointmentDay, appointment_date, appointment_time, notes || null]
     );
+    const apptId = result.insertId;
+
+    const [queueResult] = await conn.execute(
+      `SELECT COALESCE(MAX(queue_number), 0) + 1 AS next_queue FROM appointments WHERE dentist_id = ? AND appointment_date = ? AND status != 'Canceled'`,
+      [dentist_id, appointment_date]
+    );
+    const queueNumber = queueResult[0].next_queue;
+    await conn.execute('UPDATE appointments SET queue_number = ? WHERE id = ?', [queueNumber, apptId]);
+
+    if (schedule_id) {
+      await conn.execute('UPDATE schedules SET confirmed_count = confirmed_count + 1 WHERE id = ?', [schedule_id]);
+      const [updatedSched] = await conn.execute('SELECT confirmed_count, max_patients FROM schedules WHERE id = ?', [schedule_id]);
+      if (updatedSched[0].confirmed_count >= updatedSched[0].max_patients) {
+        await conn.execute("UPDATE schedules SET status = 'booked' WHERE id = ?", [schedule_id]);
+      }
+    }
+
+    const [priceRows] = await conn.execute(
+      "SELECT price FROM pricing WHERE service_name = ? LIMIT 1",
+      [service]
+    );
+    const amount = priceRows.length ? parseFloat(priceRows[0].price) : 0;
+
+    const dateStr = appointment_date.replace(/-/g, '');
+    const [invCount] = await conn.execute("SELECT COUNT(*) AS c FROM invoices WHERE DATE(created_at) = CURDATE()");
+    const seq = String(invCount[0].c + 1).padStart(3, '0');
+    const invoiceNumber = `INV-${dateStr}-${seq}`;
+
+    const [invResult] = await conn.execute(
+      'INSERT INTO invoices (patient_id, appointment_id, invoice_number, amount, status, issued_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [finalPatientId, apptId, invoiceNumber, amount, 'Unpaid', appointment_date, notes || null]
+    );
+
     await conn.commit();
-    res.status(201).json({ status: 'success', message: 'Appointment created.', id: result.insertId });
+    res.status(201).json({
+      status: 'success',
+      message: 'Appointment created successfully.',
+      appointment_id: apptId,
+      patient_id: finalPatientId,
+      invoice_id: invResult.insertId,
+      invoice_number: invoiceNumber,
+      amount,
+      queue_number: queueNumber,
+    });
   } catch (err) {
     await conn.rollback();
+    console.error('Error creating appointment:', err.message);
     res.status(500).json({ status: 'error', message: 'Error creating appointment.' });
   } finally {
     conn.release();
@@ -106,14 +197,22 @@ export const updateAppointment = async (req, res) => {
 export const cancelAppointment = async (req, res) => {
   const { id } = req.params;
   try {
-    const [rows] = await pool.execute('SELECT id, schedule_id FROM appointments WHERE id = ?', [id]);
+    const [rows] = await pool.execute('SELECT id, schedule_id, status FROM appointments WHERE id = ?', [id]);
     if (!rows.length) return res.status(404).json({ status: 'error', message: 'Appointment not found.' });
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
       await conn.execute("UPDATE appointments SET status = 'Canceled' WHERE id = ?", [id]);
-      if (rows[0].schedule_id && rows[0].schedule_id !== 0) {
-        await conn.execute("UPDATE schedules SET status = 'available' WHERE id = ?", [rows[0].schedule_id]);
+      if (rows[0].schedule_id) {
+        if (rows[0].status === 'Confirmed') {
+          await conn.execute("UPDATE schedules SET confirmed_count = GREATEST(0, confirmed_count - 1) WHERE id = ?", [rows[0].schedule_id]);
+          const [sched] = await conn.execute('SELECT confirmed_count, max_patients FROM schedules WHERE id = ?', [rows[0].schedule_id]);
+          if (sched.length && sched[0].confirmed_count < sched[0].max_patients) {
+            await conn.execute("UPDATE schedules SET status = 'available' WHERE id = ?", [rows[0].schedule_id]);
+          }
+        } else {
+          await conn.execute("UPDATE schedules SET status = 'available' WHERE id = ?", [rows[0].schedule_id]);
+        }
       }
       await conn.commit();
       res.json({ status: 'success', message: 'Appointment canceled.' });
@@ -161,10 +260,14 @@ export const getDentistSchedules = async (req, res) => {
   const { dentist_id } = req.params;
   try {
     const [rows] = await pool.execute(
-      'SELECT id, day, time FROM schedules WHERE dentist_id = ? AND status = ? ORDER BY FIELD(day, "Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"), time',
+      'SELECT id, day, time, max_patients, confirmed_count FROM schedules WHERE dentist_id = ? AND status = ? ORDER BY FIELD(day, "Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"), time',
       [dentist_id, 'available']
     );
-    res.json({ status: 'success', schedules: rows });
+    const schedules = rows.map(s => ({
+      ...s,
+      available_count: Math.max(0, s.max_patients - s.confirmed_count),
+    }));
+    res.json({ status: 'success', schedules });
   } catch (err) {
     res.status(500).json({ status: 'error', message: 'Error fetching schedules.' });
   }

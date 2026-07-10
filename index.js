@@ -1,14 +1,21 @@
 import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 import pool from "./dbconfig.js";
 import cors from "cors";
 import bcrypt from "bcrypt";
 import { generateToken, authenticateToken } from "./middleware/auth.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import adminRoutes from "./routes/admin.js";
 import dentistRoutes from "./routes/dentist.js";
 import receptionistRoutes from "./routes/receptionist.js";
 import patientRoutes from "./routes/patient.js";
+import superAdminRoutes from "./routes/superAdmin.js";
 import {
   getPublicFAQs, getPublicTestimonials, getPublicGallery, getPublicPricing, getPublicBlogPosts, getClinicInfo,
+  getPublicTeam, getPublicBlogPost, getHomeContent,
   createTables
 } from "./controllers/adminController.js";
 
@@ -17,6 +24,7 @@ const PORT = 3000;
 
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ── Root: create users table ─────────────────────────────────────────────────
 app.get("/", async (req, res) => {
@@ -25,7 +33,7 @@ app.get("/", async (req, res) => {
                   name VARCHAR(255) NOT NULL,
                   email VARCHAR(255) NOT NULL UNIQUE,
                   password VARCHAR(255) NOT NULL,
-                  role ENUM('patient', 'admin' , 'dentist', 'receptionist', 'owner') DEFAULT 'patient',
+                  role ENUM('patient', 'admin' , 'dentist', 'receptionist', 'owner', 'super_admin') DEFAULT 'patient',
                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                )`;
 
@@ -57,17 +65,18 @@ app.get("/", async (req, res) => {
     const [appointmentsResult] = await pool.execute(`
       CREATE TABLE IF NOT EXISTS appointments (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        schedule_id INT NOT NULL,
+        schedule_id INT NULL DEFAULT NULL,
         patient_id INT NOT NULL,
         dentist_id INT NOT NULL,
         service VARCHAR(255) NOT NULL,
         appointment_day VARCHAR(20) NOT NULL,
+        appointment_date DATE DEFAULT NULL,
         appointment_time VARCHAR(10) NOT NULL,
         status ENUM('Pending','Confirmed','Canceled','Completed') DEFAULT 'Pending',
         notes TEXT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY uniq_active_booking (schedule_id, patient_id),
+        KEY idx_active_booking (schedule_id, patient_id, appointment_date),
         KEY idx_patient (patient_id),
         KEY idx_dentist (dentist_id),
         KEY idx_status (status),
@@ -164,6 +173,7 @@ app.get("/me", authenticateToken, async (req, res) => {
 // ── Admin Routes ─────────────────────────────────────────────────────────────
 
 app.use('/api/admin', adminRoutes);
+app.use('/api/super-admin', superAdminRoutes);
 app.use('/api/dentist', dentistRoutes);
 app.use('/api/receptionist', receptionistRoutes);
 app.use('/api/patient', patientRoutes);
@@ -175,7 +185,10 @@ app.get('/api/testimonials', getPublicTestimonials);
 app.get('/api/gallery', getPublicGallery);
 app.get('/api/pricing', getPublicPricing);
 app.get('/api/blog-posts', getPublicBlogPosts);
+app.get('/api/blog/:id', getPublicBlogPost);
 app.get('/api/clinic-info', getClinicInfo);
+app.get('/api/team', getPublicTeam);
+app.get('/api/home-content', getHomeContent);
 
 // ── Existing Routes (kept for backward compatibility) ──────────────────────────
 
@@ -286,8 +299,8 @@ function getNextWeekdayDate(dayName) {
   const date = new Date(now);
   date.setDate(now.getDate() + diff);
   return date.toISOString().split('T')[0];
-}
-
+}    
+ 
 app.post('/appointments/pay', async (req, res) => {
   const { appointment_id, invoice_id, payment_method, reference_number } = req.body;
   if (!appointment_id || !invoice_id) {
@@ -352,9 +365,16 @@ app.post('/appointments/pay', async (req, res) => {
 });
 
 app.post('/appointments/book', async (req, res) => {
-  const { schedule_id, patient_id, dentist_id, service } = req.body;
+  const { schedule_id, patient_id, dentist_id, service, appointment_date } = req.body;
   if (!schedule_id || !patient_id || !dentist_id || !service) {
     return res.status(400).json({ status: 'error', message: 'schedule_id, patient_id, dentist_id, and service are required.' });
+  }
+  const today = new Date().toISOString().split('T')[0];
+  if (!appointment_date) {
+    return res.status(400).json({ status: 'error', message: 'appointment_date is required.' });
+  }
+  if (appointment_date < today) {
+    return res.status(400).json({ status: 'error', message: 'Cannot book an appointment for a past date.' });
   }
   const conn = await pool.getConnection();
   try {
@@ -377,12 +397,25 @@ app.post('/appointments/book', async (req, res) => {
       await conn.rollback();
       return res.status(409).json({ status: 'error', message: 'This slot is fully booked. No capacity remaining.' });
     }
-    const appointmentDate = getNextWeekdayDate(slot.day);
+    const [existingAppt] = await conn.execute(
+      "SELECT id FROM appointments WHERE schedule_id = ? AND patient_id = ? AND appointment_date = ? AND status IN ('Pending','Confirmed')",
+      [schedule_id, patient_id, appointment_date]
+    );
+    if (existingAppt.length) {
+      await conn.rollback();
+      return res.status(409).json({ status: 'error', message: 'You already have a booking for this slot on the selected date.' });
+    }
     const [apptResult] = await conn.execute(
       "INSERT INTO appointments (schedule_id, patient_id, dentist_id, service, appointment_day, appointment_date, appointment_time, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending')",
-      [schedule_id, patient_id, dentist_id, service, slot.day, appointmentDate, slot.time]
+      [schedule_id, patient_id, dentist_id, service, slot.day, appointment_date, slot.time]
     );
     const apptId = apptResult.insertId;
+    const [queueResult] = await conn.execute(
+      "SELECT COALESCE(MAX(queue_number), 0) + 1 AS next_queue FROM appointments WHERE dentist_id = ? AND appointment_date = ? AND status != 'Canceled'",
+      [dentist_id, appointment_date]
+    );
+    const queueNumber = queueResult[0].next_queue;
+    await conn.execute('UPDATE appointments SET queue_number = ? WHERE id = ?', [queueNumber, apptId]);
     const invNumber = `INV-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${apptId}`;
     const [priceRows] = await conn.execute(
       "SELECT price FROM pricing WHERE service_name = ? OR service_id = (SELECT id FROM services WHERE service = ? LIMIT 1) LIMIT 1",
@@ -391,7 +424,7 @@ app.post('/appointments/book', async (req, res) => {
     const amount = priceRows.length ? parseFloat(priceRows[0].price) : 0;
     const [invResult] = await conn.execute(
       "INSERT INTO invoices (patient_id, appointment_id, invoice_number, amount, status, issued_date) VALUES (?, ?, ?, ?, 'Unpaid', ?)",
-      [patient_id, apptId, invNumber, amount, appointmentDate]
+      [patient_id, apptId, invNumber, amount, appointment_date]
     );
     await conn.commit();
     res.status(201).json({
@@ -401,13 +434,11 @@ app.post('/appointments/book', async (req, res) => {
       invoice_id: invResult.insertId,
       amount,
       invoice_number: invNumber,
+      queue_number: queueNumber,
     });
   } catch (err) {
     await conn.rollback();
     console.error('Error booking appointment:', err);
-    if (err.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ status: 'error', message: 'You already have a booking for this slot.' });
-    }
     if (err.code === 'ER_NO_REFERENCED_ROW_2' || err.code === 'ER_ROW_IS_REFERENCED_2') {
       return res.status(400).json({ status: 'error', message: 'Invalid patient or dentist reference.' });
     }
@@ -461,7 +492,7 @@ app.post('/appointments/cancel', async (req, res) => {
 });
 
 app.post('/appointments/reschedule', async (req, res) => {
-  const { appointment_id, new_schedule_id, service } = req.body;
+  const { appointment_id, new_schedule_id, service, appointment_date } = req.body;
   if (!appointment_id || !new_schedule_id) {
     return res.status(400).json({ status: 'error', message: 'appointment_id and new_schedule_id are required.' });
   }
@@ -495,27 +526,30 @@ app.post('/appointments/reschedule', async (req, res) => {
       await conn.rollback();
       return res.status(409).json({ status: 'error', message: 'New slot is fully booked. No capacity remaining.' });
     }
+    const nextService = service || oldAppt.old_service;
+    const newApptDate = appointment_date || getNextWeekdayDate(newSlot.day);
+    const [result] = await conn.execute(
+      "INSERT INTO appointments (schedule_id, patient_id, dentist_id, service, appointment_day, appointment_date, appointment_time, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'Confirmed')",
+      [new_schedule_id, oldAppt.patient_id, newSlot.dentist_id, nextService, newSlot.day, newApptDate, newSlot.time]
+    );
+    const newApptId = result.insertId;
+    await conn.execute("UPDATE invoices SET appointment_id = ? WHERE appointment_id = ?", [newApptId, appointment_id]);
     await conn.execute("UPDATE appointments SET status = 'Canceled' WHERE id = ?", [appointment_id]);
     await conn.execute("UPDATE schedules SET confirmed_count = GREATEST(0, confirmed_count - 1) WHERE id = ?", [oldAppt.schedule_id]);
     const [oldSchedRows] = await conn.execute('SELECT confirmed_count, max_patients FROM schedules WHERE id = ?', [oldAppt.schedule_id]);
     if (oldSchedRows.length && oldSchedRows[0].confirmed_count < oldSchedRows[0].max_patients) {
       await conn.execute("UPDATE schedules SET status = 'available' WHERE id = ?", [oldAppt.schedule_id]);
     }
-    const nextService = service || oldAppt.old_service;
-    const newApptDate = getNextWeekdayDate(newSlot.day);
-    const [result] = await conn.execute(
-      "INSERT INTO appointments (schedule_id, patient_id, dentist_id, service, appointment_day, appointment_date, appointment_time, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'Confirmed')",
-      [new_schedule_id, oldAppt.patient_id, newSlot.dentist_id, nextService, newSlot.day, newApptDate, newSlot.time]
-    );
     await conn.execute("UPDATE schedules SET confirmed_count = confirmed_count + 1 WHERE id = ?", [new_schedule_id]);
     const [updatedSched] = await conn.execute('SELECT confirmed_count, max_patients FROM schedules WHERE id = ?', [new_schedule_id]);
     if (updatedSched[0].confirmed_count >= updatedSched[0].max_patients) {
       await conn.execute("UPDATE schedules SET status = 'booked' WHERE id = ?", [new_schedule_id]);
     }
     await conn.commit();
-    res.json({ status: 'success', message: 'Appointment rescheduled.', appointment_id: result.insertId });
+    res.json({ status: 'success', message: 'Appointment rescheduled.', appointment_id: newApptId });
   } catch (err) {
     await conn.rollback();
+    console.error('Error rescheduling appointment:', err);
     res.status(500).json({ status: 'error', message: 'Error rescheduling appointment.' });
   } finally {
     conn.release();
@@ -526,15 +560,32 @@ app.get('/appointments/patient/:patient_id', async (req, res) => {
   const { patient_id } = req.params;
   try {
     const [rows] = await pool.execute(
-      `SELECT a.id, a.patient_id, a.dentist_id, u.name AS dentist_name, a.service, a.appointment_day, a.appointment_time, a.status, a.notes, a.created_at, a.updated_at,
+      `SELECT a.id, a.patient_id, a.dentist_id, u.name AS dentist_name, a.service, a.appointment_day, a.appointment_date, a.appointment_time, a.queue_number, a.status, a.notes, a.created_at, a.updated_at,
               i.id AS invoice_id, i.amount, i.status AS invoice_status, i.invoice_number
        FROM appointments a LEFT JOIN users u ON a.dentist_id = u.id
        LEFT JOIN invoices i ON i.appointment_id = a.id
        WHERE a.patient_id = ? ORDER BY a.created_at DESC`,
       [patient_id]
     );
-    res.json({ status: 'success', appointments: rows });
+    const [notes] = await pool.execute(
+      `SELECT tn.patient_id, tn.dentist_id, tn.notes
+       FROM treatment_notes tn
+       WHERE tn.patient_id = ?`,
+      [patient_id]
+    );
+    const notesMap = {};
+    for (const n of notes) {
+      const key = `${n.patient_id}_${n.dentist_id}`;
+      if (!notesMap[key]) notesMap[key] = [];
+      if (n.notes && n.notes.trim()) notesMap[key].push(n.notes.trim());
+    }
+    const result = rows.map(r => ({
+      ...r,
+      clinical_notes: (notesMap[`${r.patient_id}_${r.dentist_id}`] || []).join('\n---\n') || null,
+    }));
+    res.json({ status: 'success', appointments: result });
   } catch (err) {
+    console.error('Error fetching patient appointments:', err);
     res.status(500).json({ status: 'error', message: 'Error fetching appointments.' });
   }
 });
@@ -601,10 +652,13 @@ const ensureTables = async () => {
       email VARCHAR(255) NOT NULL UNIQUE,
       password VARCHAR(255) NOT NULL,
       phone VARCHAR(50) DEFAULT NULL,
-      role ENUM('patient', 'admin', 'dentist', 'receptionist') DEFAULT 'patient',
+      role ENUM('patient', 'admin', 'dentist', 'receptionist', 'owner', 'super_admin') DEFAULT 'patient',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
     await createTables();
+    try {
+      await pool.execute("ALTER TABLE users MODIFY COLUMN role ENUM('patient', 'admin', 'dentist', 'receptionist', 'owner', 'super_admin') DEFAULT 'patient'");
+    } catch {}
     await pool.execute(`CREATE TABLE IF NOT EXISTS schedules (
       id INT AUTO_INCREMENT PRIMARY KEY,
       dentist_id INT NOT NULL,
@@ -647,7 +701,7 @@ const ensureTables = async () => {
       notes TEXT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY uniq_active_booking (schedule_id, patient_id),
+      KEY idx_active_booking (schedule_id, patient_id, appointment_date),
       KEY idx_patient (patient_id),
       KEY idx_dentist (dentist_id),
       KEY idx_status (status),
@@ -662,7 +716,16 @@ const ensureTables = async () => {
       await pool.execute('ALTER TABLE appointments MODIFY schedule_id INT NULL DEFAULT NULL');
     } catch { /* already nullable */ }
     try {
+      await pool.execute('ALTER TABLE appointments DROP INDEX uniq_active_booking');
+    } catch { /* index doesn't exist or already dropped */ }
+    try {
+      await pool.execute('ALTER TABLE appointments ADD INDEX idx_active_booking (schedule_id, patient_id, appointment_date)');
+    } catch { /* index already exists */ }
+    try {
       await pool.execute("ALTER TABLE users ADD COLUMN phone VARCHAR(50) DEFAULT NULL AFTER password");
+    } catch { /* column already exists */ }
+    try {
+      await pool.execute('ALTER TABLE appointments ADD COLUMN queue_number INT DEFAULT NULL AFTER appointment_time');
     } catch { /* column already exists */ }
 
     await pool.execute(`CREATE TABLE IF NOT EXISTS invoices (

@@ -6,7 +6,7 @@ export const getDashboard = async (req, res) => {
   const dentistId = req.user.id;
   try {
     const [todayAppts] = await pool.execute(
-      `SELECT a.id, a.patient_id, a.service, a.appointment_day, a.appointment_date, a.appointment_time, a.status,
+      `SELECT a.id, a.patient_id, a.service, a.appointment_day, a.appointment_date, a.appointment_time, a.queue_number, a.status,
               u.name AS patient_name
        FROM appointments a
        LEFT JOIN users u ON a.patient_id = u.id
@@ -16,7 +16,7 @@ export const getDashboard = async (req, res) => {
     );
 
     const [upcomingAppts] = await pool.execute(
-      `SELECT a.id, a.patient_id, a.service, a.appointment_day, a.appointment_date, a.appointment_time, a.status,
+      `SELECT a.id, a.patient_id, a.service, a.appointment_day, a.appointment_date, a.appointment_time, a.queue_number, a.status,
               u.name AS patient_name
        FROM appointments a
        LEFT JOIN users u ON a.patient_id = u.id
@@ -55,13 +55,14 @@ export const getMyAppointments = async (req, res) => {
   const { status, date } = req.query;
   try {
     let query = `
-      SELECT a.id, a.patient_id, a.service, a.appointment_day, a.appointment_date, a.appointment_time, a.status, a.notes,
+      SELECT a.id, a.patient_id, a.service, a.appointment_day, a.appointment_date, a.appointment_time, a.queue_number, a.status, a.notes,
              a.created_at, a.updated_at, u.name AS patient_name
       FROM appointments a
       LEFT JOIN users u ON a.patient_id = u.id
       WHERE a.dentist_id = ?`;
     let params = [dentistId];
     if (status) { query += ' AND a.status = ?'; params.push(status); }
+    else { query += " AND a.status IN ('Confirmed','Completed')"; }
     if (date) { query += ' AND a.appointment_date = ?'; params.push(date); }
     query += ' ORDER BY a.appointment_date ASC, a.appointment_time ASC';
     const [rows] = await pool.execute(query, params);
@@ -80,14 +81,25 @@ export const updateAppointmentStatus = async (req, res) => {
   }
   try {
     const [rows] = await pool.execute(
-      'SELECT id, dentist_id FROM appointments WHERE id = ?',
+      'SELECT id, dentist_id, schedule_id, status AS old_status FROM appointments WHERE id = ?',
       [id]
     );
     if (!rows.length) return res.status(404).json({ status: 'error', message: 'Appointment not found.' });
     if (rows[0].dentist_id !== req.user.id) {
       return res.status(403).json({ status: 'error', message: 'You can only update your own appointments.' });
     }
+    const oldStatus = rows[0].old_status;
+    const scheduleId = rows[0].schedule_id;
     await pool.execute('UPDATE appointments SET status = ? WHERE id = ?', [status, id]);
+    if (scheduleId && (oldStatus === 'Confirmed' || oldStatus === 'Completed')) {
+      if (status === 'Canceled' || status === 'Completed') {
+        await pool.execute("UPDATE schedules SET confirmed_count = GREATEST(0, confirmed_count - 1) WHERE id = ?", [scheduleId]);
+        const [sched] = await pool.execute('SELECT confirmed_count, max_patients FROM schedules WHERE id = ?', [scheduleId]);
+        if (sched.length && sched[0].confirmed_count < sched[0].max_patients) {
+          await pool.execute("UPDATE schedules SET status = 'available' WHERE id = ?", [scheduleId]);
+        }
+      }
+    }
     res.json({ status: 'success', message: 'Appointment status updated.' });
   } catch (err) {
     res.status(500).json({ status: 'error', message: 'Error updating appointment.' });
@@ -131,7 +143,7 @@ export const getPatientDetails = async (req, res) => {
     );
 
     const [appointments] = await pool.execute(
-      `SELECT id, service, appointment_day, appointment_time, status, notes, created_at
+      `SELECT id, service, appointment_day, appointment_time, queue_number, status, notes, created_at
        FROM appointments WHERE patient_id = ? AND dentist_id = ?
        ORDER BY created_at DESC`,
       [id, dentistId]
@@ -331,13 +343,14 @@ export const getXrays = async (req, res) => {
 export const createXray = async (req, res) => {
   const dentistId = req.user.id;
   const { patient_id, appointment_id, image_url, description, taken_date } = req.body;
-  if (!patient_id || !image_url) {
-    return res.status(400).json({ status: 'error', message: 'Patient ID and image URL are required.' });
+  const finalImage = req.file ? req.file.filename : image_url;
+  if (!patient_id || !finalImage) {
+    return res.status(400).json({ status: 'error', message: 'Patient ID and image are required.' });
   }
   try {
     const [result] = await pool.execute(
       'INSERT INTO xrays (patient_id, appointment_id, dentist_id, image_url, description, taken_date) VALUES (?, ?, ?, ?, ?, ?)',
-      [patient_id, appointment_id || null, dentistId, image_url, description || null, taken_date || new Date().toISOString().split('T')[0]]
+      [patient_id, appointment_id || null, dentistId, finalImage, description || null, taken_date || new Date().toISOString().split('T')[0]]
     );
     res.status(201).json({ status: 'success', message: 'X-ray added.', id: result.insertId });
   } catch (err) {

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { allowRoles } from '../middleware/roleCheck.js';
+import { upload } from '../middleware/upload.js';
 import {
   getDashboardStats, getRevenueStats,
   getAllUsers, createUser, updateUser, deleteUser, assignRole,
@@ -10,6 +11,8 @@ import {
   getTestimonials, createTestimonial, updateTestimonial, deleteTestimonial,
   getGalleryImages, createGalleryImage, deleteGalleryImage,
   getPricing, createPricing, updatePricing, deletePricing, getAdminServices,
+  getTeamMembers, createTeamMember, updateTeamMember, deleteTeamMember,
+  getHomeContentAdmin, updateHomeContent,
   getClinicSettings, updateClinicSettings,
   getAppointmentReports, getPatientStats, exportReports,
   createBackup, getAuditLogs,
@@ -47,8 +50,8 @@ router.put('/appointments/:id/cancel', cancelAppointment);
 
 // ── Blog Posts ──────────────────────────────────────────────────────────────────
 router.get('/blog-posts', getBlogPosts);
-router.post('/blog-posts', createBlogPost);
-router.put('/blog-posts/:id', updateBlogPost);
+router.post('/blog-posts', upload.single('image'), createBlogPost);
+router.put('/blog-posts/:id', upload.single('image'), updateBlogPost);
 router.delete('/blog-posts/:id', deleteBlogPost);
 
 // ── FAQs ──────────────────────────────────────────────────────────────────────
@@ -59,13 +62,13 @@ router.delete('/faqs/:id', deleteFAQ);
 
 // ── Testimonials ───────────────────────────────────────────────────────────────
 router.get('/testimonials', getTestimonials);
-router.post('/testimonials', createTestimonial);
-router.put('/testimonials/:id', updateTestimonial);
+router.post('/testimonials', upload.single('image'), createTestimonial);
+router.put('/testimonials/:id', upload.single('image'), updateTestimonial);
 router.delete('/testimonials/:id', deleteTestimonial);
 
 // ── Gallery ─────────────────────────────────────────────────────────────────────
 router.get('/gallery', getGalleryImages);
-router.post('/gallery', createGalleryImage);
+router.post('/gallery', upload.single('image'), createGalleryImage);
 router.delete('/gallery/:id', deleteGalleryImage);
 
 // ── Pricing ─────────────────────────────────────────────────────────────────────
@@ -73,6 +76,16 @@ router.get('/pricing', getPricing);
 router.post('/pricing', createPricing);
 router.put('/pricing/:id', updatePricing);
 router.delete('/pricing/:id', deletePricing);
+
+// ── Team Members ────────────────────────────────────────────────────────────────
+router.get('/team', getTeamMembers);
+router.post('/team', upload.single('image'), createTeamMember);
+router.put('/team/:id', upload.single('image'), updateTeamMember);
+router.delete('/team/:id', deleteTeamMember);
+
+// ── Home Content ────────────────────────────────────────────────────────────────
+router.get('/home-content', getHomeContentAdmin);
+router.put('/home-content/:section_key', updateHomeContent);
 
 // ── Services (admin) ────────────────────────────────────────────────────────────
 router.get('/services', getAdminServices);

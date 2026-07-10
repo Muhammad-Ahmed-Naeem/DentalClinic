@@ -140,6 +140,29 @@ const createTables = async () => {
       FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL,
       FOREIGN KEY (dentist_id) REFERENCES users(id) ON DELETE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS team_members (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      role VARCHAR(100) NOT NULL,
+      specialization VARCHAR(255),
+      bio TEXT,
+      image_url VARCHAR(500),
+      email VARCHAR(255),
+      phone VARCHAR(50),
+      sort_order INT DEFAULT 0,
+      published BOOLEAN DEFAULT true,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS home_content (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      section_key VARCHAR(100) NOT NULL UNIQUE,
+      title VARCHAR(255),
+      subtitle TEXT,
+      content JSON,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`,
   ];
   for (const q of queries) {
     try {
@@ -180,7 +203,7 @@ export const getDashboardStats = async (req, res) => {
     );
 
     const [recentAppts] = await pool.execute(
-      `SELECT a.id, u.name as patient_name, a.appointment_day, a.appointment_time, a.status, a.service
+      `SELECT a.id, u.name as patient_name, a.appointment_day, a.appointment_time, a.queue_number, a.status, a.service
        FROM appointments a LEFT JOIN users u ON a.patient_id = u.id
        ORDER BY a.created_at DESC LIMIT 10`
     );
@@ -321,7 +344,7 @@ export const getAllAppointments = async (req, res) => {
   try {
     const { status: statusFilter, date } = req.query;
     let query = `
-      SELECT a.id, a.patient_id, a.dentist_id, a.service, a.appointment_day, a.appointment_time,
+      SELECT a.id, a.patient_id, a.dentist_id, a.service, a.appointment_day, a.appointment_time, a.queue_number,
              a.status, a.notes, a.created_at, a.updated_at,
              p.name AS patient_name, d.name AS dentist_name
       FROM appointments a
@@ -374,10 +397,17 @@ export const approveAppointment = async (req, res) => {
 export const completeAppointment = async (req, res) => {
   const { id } = req.params;
   try {
-    const [rows] = await pool.execute('SELECT id, status FROM appointments WHERE id = ?', [id]);
+    const [rows] = await pool.execute('SELECT id, schedule_id, status FROM appointments WHERE id = ?', [id]);
     if (!rows.length) return res.status(404).json({ status: 'error', message: 'Appointment not found.' });
     if (rows[0].status !== 'Confirmed') return res.status(409).json({ status: 'error', message: 'Only confirmed appointments can be completed.' });
     await pool.execute("UPDATE appointments SET status = 'Completed' WHERE id = ?", [id]);
+    if (rows[0].schedule_id) {
+      await pool.execute("UPDATE schedules SET confirmed_count = GREATEST(0, confirmed_count - 1) WHERE id = ?", [rows[0].schedule_id]);
+      const [sched] = await pool.execute('SELECT confirmed_count, max_patients FROM schedules WHERE id = ?', [rows[0].schedule_id]);
+      if (sched.length && sched[0].confirmed_count < sched[0].max_patients) {
+        await pool.execute("UPDATE schedules SET status = 'available' WHERE id = ?", [rows[0].schedule_id]);
+      }
+    }
     await logAudit(req.user.id, req.user.name, 'complete_appointment', 'appointments', parseInt(id), 'Completed appointment');
     res.json({ status: 'success', message: 'Appointment completed.' });
   } catch (err) {
@@ -426,10 +456,12 @@ export const getBlogPosts = async (req, res) => {
 export const createBlogPost = async (req, res) => {
   const { title, content, excerpt, image_url, published } = req.body;
   if (!title || !content) return res.status(400).json({ status: 'error', message: 'Title and content are required.' });
+  const finalImage = req.file ? req.file.filename : (image_url || null);
+  const isPublished = published === true || published === 'true' || published === '1';
   try {
     const [result] = await pool.execute(
       'INSERT INTO blog_posts (title, content, excerpt, author, image_url, published) VALUES (?, ?, ?, ?, ?, ?)',
-      [title, content, excerpt || null, req.user.name, image_url || null, published || false]
+      [title, content, excerpt || null, req.user.name, finalImage, isPublished ? 1 : 0]
     );
     await logAudit(req.user.id, req.user.name, 'create_blog', 'blog_posts', result.insertId, `Created post: ${title}`);
     res.json({ status: 'success', message: 'Blog post created.', id: result.insertId });
@@ -441,10 +473,12 @@ export const createBlogPost = async (req, res) => {
 export const updateBlogPost = async (req, res) => {
   const { id } = req.params;
   const { title, content, excerpt, image_url, published } = req.body;
+  const finalImage = req.file ? req.file.filename : (image_url ?? null);
+  const isPublished = published === true || published === 'true' || published === '1';
   try {
     await pool.execute(
       'UPDATE blog_posts SET title = ?, content = ?, excerpt = ?, image_url = ?, published = ? WHERE id = ?',
-      [title, content, excerpt || null, image_url || null, published ?? false, id]
+      [title, content, excerpt || null, finalImage, isPublished ? 1 : 0, id]
     );
     await logAudit(req.user.id, req.user.name, 'update_blog', 'blog_posts', parseInt(id), `Updated post: ${title}`);
     res.json({ status: 'success', message: 'Blog post updated.' });
@@ -478,10 +512,11 @@ export const getFAQs = async (req, res) => {
 export const createFAQ = async (req, res) => {
   const { question, answer, category, sort_order, published } = req.body;
   if (!question || !answer) return res.status(400).json({ status: 'error', message: 'Question and answer are required.' });
+  const isPublished = published === true || published === 'true' || published === '1';
   try {
     const [result] = await pool.execute(
       'INSERT INTO faqs (question, answer, category, sort_order, published) VALUES (?, ?, ?, ?, ?)',
-      [question, answer, category || 'general', sort_order || 0, published ?? true]
+      [question, answer, category || 'general', parseInt(sort_order, 10) || 0, isPublished ? 1 : 0]
     );
     await logAudit(req.user.id, req.user.name, 'create_faq', 'faqs', result.insertId, `Created FAQ: ${question.substring(0, 50)}`);
     res.json({ status: 'success', message: 'FAQ created.', id: result.insertId });
@@ -493,10 +528,11 @@ export const createFAQ = async (req, res) => {
 export const updateFAQ = async (req, res) => {
   const { id } = req.params;
   const { question, answer, category, sort_order, published } = req.body;
+  const isPublished = published === true || published === 'true' || published === '1';
   try {
     await pool.execute(
       'UPDATE faqs SET question = ?, answer = ?, category = ?, sort_order = ?, published = ? WHERE id = ?',
-      [question, answer, category || 'general', sort_order || 0, published ?? true, id]
+      [question, answer, category || 'general', parseInt(sort_order, 10) || 0, isPublished ? 1 : 0, id]
     );
     await logAudit(req.user.id, req.user.name, 'update_faq', 'faqs', parseInt(id), 'Updated FAQ');
     res.json({ status: 'success', message: 'FAQ updated.' });
@@ -530,10 +566,12 @@ export const getTestimonials = async (req, res) => {
 export const createTestimonial = async (req, res) => {
   const { patient_name, content, rating, image_url, published } = req.body;
   if (!patient_name || !content) return res.status(400).json({ status: 'error', message: 'Patient name and content are required.' });
+  const finalImage = req.file ? req.file.filename : (image_url || null);
+  const isPublished = published === true || published === 'true' || published === '1';
   try {
     const [result] = await pool.execute(
       'INSERT INTO testimonials (patient_name, content, rating, image_url, published) VALUES (?, ?, ?, ?, ?)',
-      [patient_name, content, rating || 5, image_url || null, published || false]
+      [patient_name, content, parseInt(rating, 10) || 5, finalImage, isPublished ? 1 : 0]
     );
     await logAudit(req.user.id, req.user.name, 'create_testimonial', 'testimonials', result.insertId, `Created testimonial by ${patient_name}`);
     res.json({ status: 'success', message: 'Testimonial created.', id: result.insertId });
@@ -545,10 +583,12 @@ export const createTestimonial = async (req, res) => {
 export const updateTestimonial = async (req, res) => {
   const { id } = req.params;
   const { patient_name, content, rating, image_url, published } = req.body;
+  const finalImage = req.file ? req.file.filename : (image_url ?? null);
+  const isPublished = published === true || published === 'true' || published === '1';
   try {
     await pool.execute(
       'UPDATE testimonials SET patient_name = ?, content = ?, rating = ?, image_url = ?, published = ? WHERE id = ?',
-      [patient_name, content, rating || 5, image_url || null, published || false, id]
+      [patient_name, content, parseInt(rating, 10) || 5, finalImage, isPublished ? 1 : 0, id]
     );
     await logAudit(req.user.id, req.user.name, 'update_testimonial', 'testimonials', parseInt(id), 'Updated testimonial');
     res.json({ status: 'success', message: 'Testimonial updated.' });
@@ -581,11 +621,12 @@ export const getGalleryImages = async (req, res) => {
 
 export const createGalleryImage = async (req, res) => {
   const { title, image_url, description, category } = req.body;
-  if (!title || !image_url) return res.status(400).json({ status: 'error', message: 'Title and image URL are required.' });
+  const finalImage = req.file ? req.file.filename : image_url;
+  if (!title || !finalImage) return res.status(400).json({ status: 'error', message: 'Title and image are required.' });
   try {
     const [result] = await pool.execute(
       'INSERT INTO gallery_images (title, image_url, description, category) VALUES (?, ?, ?, ?)',
-      [title, image_url, description || null, category || null]
+      [title, finalImage, description || null, category || null]
     );
     await logAudit(req.user.id, req.user.name, 'create_gallery', 'gallery_images', result.insertId, `Added image: ${title}`);
     res.json({ status: 'success', message: 'Image added.', id: result.insertId });
@@ -824,6 +865,104 @@ export const getAuditLogs = async (req, res) => {
   }
 };
 
+// ── Team Members ──────────────────────────────────────────────────────────────
+
+export const getTeamMembers = async (req, res) => {
+  try {
+    const [rows] = await pool.execute('SELECT * FROM team_members ORDER BY sort_order ASC, created_at DESC');
+    res.json({ status: 'success', members: rows });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Error fetching team members.' });
+  }
+};
+
+export const createTeamMember = async (req, res) => {
+  const { name, role, specialization, bio, email, phone, sort_order, published } = req.body;
+  if (!name || !role) return res.status(400).json({ status: 'error', message: 'Name and role are required.' });
+  const finalImage = req.file ? req.file.filename : (req.body.image_url || null);
+  const isPublished = published === true || published === 'true' || published === '1';
+  const order = parseInt(sort_order, 10) || 0;
+  try {
+    const [result] = await pool.execute(
+      'INSERT INTO team_members (name, role, specialization, bio, image_url, email, phone, sort_order, published) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, role, specialization || null, bio || null, finalImage, email || null, phone || null, order, isPublished ? 1 : 0]
+    );
+    await logAudit(req.user.id, req.user.name, 'create_team_member', 'team_members', result.insertId, `Added team member: ${name}`);
+    res.json({ status: 'success', message: 'Team member added.', id: result.insertId });
+  } catch (err) {
+    console.error('Error creating team member:', err);
+    res.status(500).json({ status: 'error', message: 'Error adding team member.' });
+  }
+};
+
+export const updateTeamMember = async (req, res) => {
+  const { id } = req.params;
+  const { name, role, specialization, bio, email, phone, sort_order, published } = req.body;
+  const finalImage = req.file ? req.file.filename : (req.body.image_url ?? null);
+  const isPublished = published === true || published === 'true' || published === '1';
+  const order = parseInt(sort_order, 10) || 0;
+  try {
+    await pool.execute(
+      'UPDATE team_members SET name = ?, role = ?, specialization = ?, bio = ?, image_url = COALESCE(?, image_url), email = ?, phone = ?, sort_order = ?, published = ? WHERE id = ?',
+      [name, role, specialization || null, bio || null, finalImage, email || null, phone || null, order, isPublished ? 1 : 0, id]
+    );
+    await logAudit(req.user.id, req.user.name, 'update_team_member', 'team_members', parseInt(id), `Updated team member: ${name}`);
+    res.json({ status: 'success', message: 'Team member updated.' });
+  } catch (err) {
+    console.error('Error updating team member:', err);
+    res.status(500).json({ status: 'error', message: 'Error updating team member.' });
+  }
+};
+
+export const deleteTeamMember = async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.execute('DELETE FROM team_members WHERE id = ?', [id]);
+    await logAudit(req.user.id, req.user.name, 'delete_team_member', 'team_members', parseInt(id), 'Deleted team member');
+    res.json({ status: 'success', message: 'Team member deleted.' });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Error deleting team member.' });
+  }
+};
+
+// ── Home Content ──────────────────────────────────────────────────────────────
+
+export const getHomeContent = async (req, res) => {
+  try {
+    const [rows] = await pool.execute('SELECT * FROM home_content');
+    const content = {};
+    rows.forEach(r => { content[r.section_key] = { title: r.title, subtitle: r.subtitle, content: r.content ? JSON.parse(r.content) : null }; });
+    res.json({ status: 'success', content });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Error fetching home content.' });
+  }
+};
+
+export const getHomeContentAdmin = async (req, res) => {
+  try {
+    const [rows] = await pool.execute('SELECT * FROM home_content ORDER BY id ASC');
+    res.json({ status: 'success', sections: rows });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Error fetching home content.' });
+  }
+};
+
+export const updateHomeContent = async (req, res) => {
+  const { section_key } = req.params;
+  const { title, subtitle, content } = req.body;
+  try {
+    const contentJson = content ? JSON.stringify(content) : null;
+    await pool.execute(
+      'INSERT INTO home_content (section_key, title, subtitle, content) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE title = VALUES(title), subtitle = VALUES(subtitle), content = VALUES(content)',
+      [section_key, title || null, subtitle || null, contentJson]
+    );
+    await logAudit(req.user.id, req.user.name, 'update_home_content', 'home_content', null, `Updated section: ${section_key}`);
+    res.json({ status: 'success', message: 'Home content updated.' });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Error updating home content.' });
+  }
+};
+
 // ── Public facing endpoints ─────────────────────────────────────────────────────
 
 export const getPublicFAQs = async (req, res) => {
@@ -879,6 +1018,26 @@ export const getClinicInfo = async (req, res) => {
     res.json({ status: 'success', settings });
   } catch (err) {
     res.status(500).json({ status: 'error', message: 'Error fetching clinic info.' });
+  }
+};
+
+export const getPublicTeam = async (req, res) => {
+  try {
+    const [rows] = await pool.execute('SELECT * FROM team_members WHERE published = true ORDER BY sort_order ASC, created_at DESC');
+    res.json({ status: 'success', members: rows });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Error fetching team.' });
+  }
+};
+
+export const getPublicBlogPost = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [rows] = await pool.execute('SELECT * FROM blog_posts WHERE id = ? AND published = true', [id]);
+    if (!rows.length) return res.status(404).json({ status: 'error', message: 'Blog post not found.' });
+    res.json({ status: 'success', post: rows[0] });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Error fetching blog post.' });
   }
 };
 

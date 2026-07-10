@@ -119,7 +119,7 @@ export const getDashboard = async (req, res) => {
     if (!userRows.length) return res.status(404).json({ status: 'error', message: 'User not found.' });
 
     const [apptRows] = await pool.execute(
-      `SELECT a.id, a.dentist_id, u.name AS dentist_name, a.service, a.appointment_date, a.appointment_time, a.status, a.notes
+      `SELECT a.id, a.dentist_id, u.name AS dentist_name, a.service, a.appointment_date, a.appointment_time, a.queue_number, a.status, a.notes
        FROM appointments a LEFT JOIN users u ON a.dentist_id = u.id
        WHERE a.patient_id = ? AND a.status IN ('Pending','Confirmed')
        ORDER BY a.appointment_date ASC, a.appointment_time ASC
@@ -163,9 +163,13 @@ export const getDashboard = async (req, res) => {
 export const getMyInvoices = async (req, res) => {
   try {
     const [rows] = await pool.execute(
-      `SELECT i.*,
-              COALESCE((SELECT COALESCE(SUM(amount),0) FROM payments WHERE invoice_id = i.id), 0) as amount_paid
+      `SELECT i.id, i.patient_id, i.appointment_id, i.invoice_number,
+              i.amount AS total_amount, i.status, i.issued_date AS invoice_date,
+              i.paid_date, i.notes, i.created_at, i.updated_at,
+              COALESCE((SELECT COALESCE(SUM(amount),0) FROM payments WHERE invoice_id = i.id), 0) as amount_paid,
+              a.service AS service_name
        FROM invoices i
+       LEFT JOIN appointments a ON i.appointment_id = a.id
        WHERE i.patient_id = ?
        ORDER BY i.issued_date DESC`,
       [req.user.id]
@@ -180,21 +184,26 @@ export const getMyInvoiceDetail = async (req, res) => {
   const { id } = req.params;
   try {
     const [invRows] = await pool.execute(
-      `SELECT i.*, u.name AS patient_name, u.email AS patient_email
-       FROM invoices i LEFT JOIN users u ON i.patient_id = u.id
+      `SELECT i.id, i.patient_id, i.appointment_id, i.invoice_number,
+              i.amount AS total_amount, i.status, i.issued_date AS invoice_date,
+              i.paid_date, i.notes, i.created_at, i.updated_at,
+              a.service AS service_name, u.name AS patient_name, u.email AS patient_email
+       FROM invoices i
+       LEFT JOIN appointments a ON i.appointment_id = a.id
+       LEFT JOIN users u ON i.patient_id = u.id
        WHERE i.id = ? AND i.patient_id = ?`,
       [id, req.user.id]
     );
     if (!invRows.length) return res.status(404).json({ status: 'error', message: 'Invoice not found.' });
 
     const [pmtRows] = await pool.execute(
-      'SELECT * FROM payments WHERE invoice_id = ? ORDER BY payment_date ASC',
+      'SELECT id, invoice_id, amount, payment_method AS method, payment_date, reference_number, created_at FROM payments WHERE invoice_id = ? ORDER BY payment_date ASC',
       [id]
     );
 
     res.json({
       status: 'success',
-      data: { ...invRows[0], payments: pmtRows }
+      invoice: { ...invRows[0], payments: pmtRows }
     });
   } catch (err) {
     res.status(500).json({ status: 'error', message: 'Error fetching invoice.' });

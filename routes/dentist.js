@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { allowRoles } from '../middleware/roleCheck.js';
+import { upload } from '../middleware/upload.js';
 import {
   getDashboard,
   getMyAppointments,
@@ -53,7 +54,7 @@ router.delete('/prescriptions/:id', deletePrescription);
 
 // X-rays
 router.get('/xrays', getXrays);
-router.post('/xrays', createXray);
+router.post('/xrays', upload.single('image'), createXray);
 router.delete('/xrays/:id', deleteXray);
 
 // Diagnoses
