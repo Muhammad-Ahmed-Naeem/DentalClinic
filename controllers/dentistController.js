@@ -10,7 +10,7 @@ export const getDashboard = async (req, res) => {
               u.name AS patient_name
        FROM appointments a
        LEFT JOIN users u ON a.patient_id = u.id
-       WHERE a.dentist_id = ? AND a.appointment_date = CURDATE()
+       WHERE a.dentist_id = ? AND a.appointment_date = CURDATE() AND a.status IN ('Confirmed','Completed')
        ORDER BY a.appointment_time ASC`,
       [dentistId]
     );
@@ -20,13 +20,13 @@ export const getDashboard = async (req, res) => {
               u.name AS patient_name
        FROM appointments a
        LEFT JOIN users u ON a.patient_id = u.id
-       WHERE a.dentist_id = ? AND (a.appointment_date > CURDATE() OR a.appointment_date IS NULL) AND a.status IN ('Pending','Confirmed')
+       WHERE a.dentist_id = ? AND (a.appointment_date > CURDATE() OR a.appointment_date IS NULL) AND a.status IN ('Confirmed','Completed')
        ORDER BY a.appointment_date ASC, a.appointment_time ASC LIMIT 10`,
       [dentistId]
     );
 
     const [totalPatients] = await pool.execute(
-      `SELECT COUNT(DISTINCT patient_id) as count FROM appointments WHERE dentist_id = ?`,
+      `SELECT COUNT(DISTINCT patient_id) as count FROM appointments WHERE dentist_id = ? AND status IN ('Confirmed','Completed')`,
       [dentistId]
     );
 
@@ -101,11 +101,11 @@ export const getMyPatients = async (req, res) => {
   try {
     const [rows] = await pool.execute(
       `SELECT DISTINCT u.id, u.name, u.email, u.created_at,
-              (SELECT COALESCE(a2.appointment_date, a2.created_at) FROM appointments a2 WHERE a2.patient_id = u.id AND a2.dentist_id = ? ORDER BY a2.created_at DESC LIMIT 1) as last_visit,
-              (SELECT COUNT(*) FROM appointments a WHERE a.patient_id = u.id AND a.dentist_id = ?) as total_visits
+              (SELECT COALESCE(a2.appointment_date, a2.created_at) FROM appointments a2 WHERE a2.patient_id = u.id AND a2.dentist_id = ? AND a2.status IN ('Confirmed','Completed') ORDER BY a2.created_at DESC LIMIT 1) as last_visit,
+              (SELECT COUNT(*) FROM appointments a WHERE a.patient_id = u.id AND a.dentist_id = ? AND a.status IN ('Confirmed','Completed')) as total_visits
        FROM users u
        INNER JOIN appointments a ON u.id = a.patient_id
-       WHERE a.dentist_id = ? AND u.role = 'patient'
+       WHERE a.dentist_id = ? AND u.role = 'patient' AND a.status IN ('Confirmed','Completed')
        ORDER BY last_visit DESC`,
       [dentistId, dentistId, dentistId]
     );

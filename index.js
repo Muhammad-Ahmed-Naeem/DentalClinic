@@ -6,6 +6,7 @@ import { generateToken, authenticateToken } from "./middleware/auth.js";
 import adminRoutes from "./routes/admin.js";
 import dentistRoutes from "./routes/dentist.js";
 import receptionistRoutes from "./routes/receptionist.js";
+import patientRoutes from "./routes/patient.js";
 import {
   getPublicFAQs, getPublicTestimonials, getPublicGallery, getPublicPricing, getPublicBlogPosts, getClinicInfo,
   createTables
@@ -165,6 +166,7 @@ app.get("/me", authenticateToken, async (req, res) => {
 app.use('/api/admin', adminRoutes);
 app.use('/api/dentist', dentistRoutes);
 app.use('/api/receptionist', receptionistRoutes);
+app.use('/api/patient', patientRoutes);
 
 // ── Public Routes ──────────────────────────────────────────────────────────────
 
@@ -218,10 +220,11 @@ app.get('/dentists', async (req, res) => {
 // ── Schedules ────────────────────────────────────────────────────────────────
 
 app.post('/schedules', async (req, res) => {
-  const { dentist_id, day, times } = req.body;
+  const { dentist_id, day, times, max_patients } = req.body;
   if (!dentist_id || !day || !Array.isArray(times) || times.length === 0) {
     return res.status(400).json({ status: 'error', message: 'dentist_id, day, and times[] are required.' });
   }
+  const cap = (max_patients && Number(max_patients) >= 1) ? Number(max_patients) : 1;
   try {
     const cleanedTimes = times.map((t) => String(t).trim()).filter(Boolean);
     if (cleanedTimes.length === 0) {
@@ -229,8 +232,8 @@ app.post('/schedules', async (req, res) => {
     }
     for (const t of cleanedTimes) {
       await pool.execute(
-        'INSERT INTO schedules (dentist_id, day, time, status) VALUES (?, ?, ?, "available") ON DUPLICATE KEY UPDATE status = VALUES(status)',
-        [dentist_id, day, t]
+        'INSERT INTO schedules (dentist_id, day, time, max_patients, status) VALUES (?, ?, ?, ?, "available") ON DUPLICATE KEY UPDATE max_patients = VALUES(max_patients), status = VALUES(status)',
+        [dentist_id, day, t, cap]
       );
     }
     res.json({ status: 'success', message: 'Availability saved.' });
@@ -243,10 +246,15 @@ app.get('/schedules/:dentist_id', async (req, res) => {
   const { dentist_id } = req.params;
   try {
     const [rows] = await pool.execute(
-      'SELECT id, dentist_id, day, time, status, created_at, updated_at FROM schedules WHERE dentist_id = ? ORDER BY day ASC, time ASC',
+      'SELECT id, dentist_id, day, time, max_patients, confirmed_count, status, created_at, updated_at FROM schedules WHERE dentist_id = ? ORDER BY day ASC, time ASC',
       [dentist_id]
     );
-    res.json({ status: 'success', schedules: rows });
+    const schedules = rows.map(s => ({
+      ...s,
+      available_count: Math.max(0, s.max_patients - s.confirmed_count),
+      is_available: s.status === 'available' && s.confirmed_count < s.max_patients,
+    }));
+    res.json({ status: 'success', schedules });
   } catch (err) {
     res.status(500).json({ status: 'error', message: 'Error fetching schedules.' });
   }
@@ -280,16 +288,78 @@ function getNextWeekdayDate(dayName) {
   return date.toISOString().split('T')[0];
 }
 
+app.post('/appointments/pay', async (req, res) => {
+  const { appointment_id, invoice_id, payment_method, reference_number } = req.body;
+  if (!appointment_id || !invoice_id) {
+    return res.status(400).json({ status: 'error', message: 'appointment_id and invoice_id are required.' });
+  }
+  const method = payment_method || 'Cash';
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [apptRows] = await conn.execute('SELECT id, schedule_id, patient_id, status FROM appointments WHERE id = ? FOR UPDATE', [appointment_id]);
+    if (!apptRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ status: 'error', message: 'Appointment not found.' });
+    }
+    const appt = apptRows[0];
+    if (appt.status !== 'Pending') {
+      await conn.rollback();
+      return res.status(409).json({ status: 'error', message: `Cannot pay for an appointment with status '${appt.status}'.` });
+    }
+    const [invRows] = await conn.execute('SELECT id, amount, status FROM invoices WHERE id = ? FOR UPDATE', [invoice_id]);
+    if (!invRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ status: 'error', message: 'Invoice not found.' });
+    }
+    const invoice = invRows[0];
+    if (invoice.status !== 'Unpaid') {
+      await conn.rollback();
+      return res.status(409).json({ status: 'error', message: 'Invoice is already paid or canceled.' });
+    }
+    const [schedRows] = await conn.execute('SELECT id, max_patients, confirmed_count, status FROM schedules WHERE id = ? FOR UPDATE', [appt.schedule_id]);
+    if (!schedRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ status: 'error', message: 'Schedule slot not found.' });
+    }
+    const slot = schedRows[0];
+    if (slot.confirmed_count >= slot.max_patients) {
+      await conn.execute("UPDATE appointments SET status = 'Canceled' WHERE id = ?", [appointment_id]);
+      await conn.commit();
+      return res.status(409).json({ status: 'error', message: 'Sorry, this slot has been fully booked by another patient. Your appointment has been canceled.', appointment_id });
+    }
+    const today = new Date().toISOString().split('T')[0];
+    await conn.execute(
+      "INSERT INTO payments (invoice_id, amount, payment_method, payment_date, reference_number) VALUES (?, ?, ?, ?, ?)",
+      [invoice_id, invoice.amount, method, today, reference_number || null]
+    );
+    await conn.execute("UPDATE invoices SET status = 'Paid', paid_date = ? WHERE id = ?", [today, invoice_id]);
+    await conn.execute("UPDATE appointments SET status = 'Confirmed' WHERE id = ?", [appointment_id]);
+    await conn.execute("UPDATE schedules SET confirmed_count = confirmed_count + 1 WHERE id = ?", [appt.schedule_id]);
+    const [updatedSched] = await conn.execute('SELECT confirmed_count, max_patients FROM schedules WHERE id = ?', [appt.schedule_id]);
+    if (updatedSched[0].confirmed_count >= updatedSched[0].max_patients) {
+      await conn.execute("UPDATE schedules SET status = 'booked' WHERE id = ?", [appt.schedule_id]);
+    }
+    await conn.commit();
+    res.json({ status: 'success', message: 'Payment successful. Appointment confirmed.', appointment_id });
+  } catch (err) {
+    await conn.rollback();
+    console.error('Error processing payment:', err);
+    res.status(500).json({ status: 'error', message: 'Error processing payment.' });
+  } finally {
+    conn.release();
+  }
+});
+
 app.post('/appointments/book', async (req, res) => {
   const { schedule_id, patient_id, dentist_id, service } = req.body;
   if (!schedule_id || !patient_id || !dentist_id || !service) {
-    console.log('Missing required fields:', { schedule_id, patient_id, dentist_id, service });
     return res.status(400).json({ status: 'error', message: 'schedule_id, patient_id, dentist_id, and service are required.' });
   }
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    const [schedRows] = await conn.execute('SELECT id, dentist_id, day, time, status FROM schedules WHERE id = ? FOR UPDATE', [schedule_id]);
+    const [schedRows] = await conn.execute('SELECT id, dentist_id, day, time, max_patients, confirmed_count, status FROM schedules WHERE id = ? FOR UPDATE', [schedule_id]);
     if (!schedRows.length) {
       await conn.rollback();
       return res.status(404).json({ status: 'error', message: 'Selected schedule slot not found.' });
@@ -303,24 +373,40 @@ app.post('/appointments/book', async (req, res) => {
       await conn.rollback();
       return res.status(409).json({ status: 'error', message: 'Selected schedule slot is not available.' });
     }
-    const [activeRows] = await conn.execute("SELECT id FROM appointments WHERE schedule_id = ? AND status IN ('Pending','Confirmed') LIMIT 1", [schedule_id]);
-    if (activeRows.length) {
+    if (slot.confirmed_count >= slot.max_patients) {
       await conn.rollback();
-      return res.status(409).json({ status: 'error', message: 'This slot already has an active appointment.' });
+      return res.status(409).json({ status: 'error', message: 'This slot is fully booked. No capacity remaining.' });
     }
     const appointmentDate = getNextWeekdayDate(slot.day);
-    const [result] = await conn.execute(
-      "INSERT INTO appointments (schedule_id, patient_id, dentist_id, service, appointment_day, appointment_date, appointment_time, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'Confirmed')",
+    const [apptResult] = await conn.execute(
+      "INSERT INTO appointments (schedule_id, patient_id, dentist_id, service, appointment_day, appointment_date, appointment_time, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending')",
       [schedule_id, patient_id, dentist_id, service, slot.day, appointmentDate, slot.time]
     );
-    await conn.execute("UPDATE schedules SET status = 'booked' WHERE id = ?", [schedule_id]);
+    const apptId = apptResult.insertId;
+    const invNumber = `INV-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${apptId}`;
+    const [priceRows] = await conn.execute(
+      "SELECT price FROM pricing WHERE service_name = ? OR service_id = (SELECT id FROM services WHERE service = ? LIMIT 1) LIMIT 1",
+      [service, service]
+    );
+    const amount = priceRows.length ? parseFloat(priceRows[0].price) : 0;
+    const [invResult] = await conn.execute(
+      "INSERT INTO invoices (patient_id, appointment_id, invoice_number, amount, status, issued_date) VALUES (?, ?, ?, ?, 'Unpaid', ?)",
+      [patient_id, apptId, invNumber, amount, appointmentDate]
+    );
     await conn.commit();
-    res.status(201).json({ status: 'success', message: 'Appointment confirmed.', appointment_id: result.insertId });
+    res.status(201).json({
+      status: 'success',
+      message: 'Appointment booked. Please complete payment to confirm.',
+      appointment_id: apptId,
+      invoice_id: invResult.insertId,
+      amount,
+      invoice_number: invNumber,
+    });
   } catch (err) {
     await conn.rollback();
     console.error('Error booking appointment:', err);
     if (err.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ status: 'error', message: 'This slot is already booked by you.' });
+      return res.status(409).json({ status: 'error', message: 'You already have a booking for this slot.' });
     }
     if (err.code === 'ER_NO_REFERENCED_ROW_2' || err.code === 'ER_ROW_IS_REFERENCED_2') {
       return res.status(400).json({ status: 'error', message: 'Invalid patient or dentist reference.' });
@@ -356,7 +442,14 @@ app.post('/appointments/cancel', async (req, res) => {
       return res.status(409).json({ status: 'error', message: 'Appointment already canceled.' });
     }
     await conn.execute("UPDATE appointments SET status = 'Canceled' WHERE id = ?", [appointment_id]);
-    await conn.execute("UPDATE schedules SET status = 'available' WHERE id = ?", [appt.schedule_id]);
+    if (appt.status === 'Confirmed' || appt.status === 'Completed') {
+      await conn.execute("UPDATE schedules SET confirmed_count = GREATEST(0, confirmed_count - 1) WHERE id = ?", [appt.schedule_id]);
+      const [schedRows] = await conn.execute('SELECT confirmed_count, max_patients FROM schedules WHERE id = ?', [appt.schedule_id]);
+      if (schedRows.length && schedRows[0].confirmed_count < schedRows[0].max_patients) {
+        await conn.execute("UPDATE schedules SET status = 'available' WHERE id = ?", [appt.schedule_id]);
+      }
+    }
+    await conn.execute("UPDATE invoices SET status = 'Canceled' WHERE appointment_id = ? AND status = 'Unpaid'", [appointment_id]);
     await conn.commit();
     res.json({ status: 'success', message: 'Appointment canceled.' });
   } catch (err) {
@@ -384,12 +477,11 @@ app.post('/appointments/reschedule', async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'Appointment not found.' });
     }
     const oldAppt = oldRows[0];
-    const isActiveStatus = (s) => s === 'Pending' || s === 'Confirmed';
-    if (!isActiveStatus(oldAppt.status)) {
+    if (oldAppt.status !== 'Confirmed') {
       await conn.rollback();
-      return res.status(409).json({ status: 'error', message: 'Only Pending/Confirmed appointments can be rescheduled.' });
+      return res.status(409).json({ status: 'error', message: 'Only Confirmed (paid) appointments can be rescheduled.' });
     }
-    const [newSlotRows] = await conn.execute('SELECT id, dentist_id, day, time, status FROM schedules WHERE id = ? FOR UPDATE', [new_schedule_id]);
+    const [newSlotRows] = await conn.execute('SELECT id, dentist_id, day, time, max_patients, confirmed_count, status FROM schedules WHERE id = ? FOR UPDATE', [new_schedule_id]);
     if (!newSlotRows.length) {
       await conn.rollback();
       return res.status(404).json({ status: 'error', message: 'Selected new schedule slot not found.' });
@@ -399,20 +491,27 @@ app.post('/appointments/reschedule', async (req, res) => {
       await conn.rollback();
       return res.status(409).json({ status: 'error', message: 'Selected new schedule slot is not available.' });
     }
-    const [activeRows] = await conn.execute("SELECT id FROM appointments WHERE schedule_id = ? AND status IN ('Pending','Confirmed') LIMIT 1", [new_schedule_id]);
-    if (activeRows.length) {
+    if (newSlot.confirmed_count >= newSlot.max_patients) {
       await conn.rollback();
-      return res.status(409).json({ status: 'error', message: 'This new slot already has an active appointment.' });
+      return res.status(409).json({ status: 'error', message: 'New slot is fully booked. No capacity remaining.' });
     }
     await conn.execute("UPDATE appointments SET status = 'Canceled' WHERE id = ?", [appointment_id]);
-    await conn.execute("UPDATE schedules SET status = 'available' WHERE id = ?", [oldAppt.schedule_id]);
+    await conn.execute("UPDATE schedules SET confirmed_count = GREATEST(0, confirmed_count - 1) WHERE id = ?", [oldAppt.schedule_id]);
+    const [oldSchedRows] = await conn.execute('SELECT confirmed_count, max_patients FROM schedules WHERE id = ?', [oldAppt.schedule_id]);
+    if (oldSchedRows.length && oldSchedRows[0].confirmed_count < oldSchedRows[0].max_patients) {
+      await conn.execute("UPDATE schedules SET status = 'available' WHERE id = ?", [oldAppt.schedule_id]);
+    }
     const nextService = service || oldAppt.old_service;
     const newApptDate = getNextWeekdayDate(newSlot.day);
     const [result] = await conn.execute(
       "INSERT INTO appointments (schedule_id, patient_id, dentist_id, service, appointment_day, appointment_date, appointment_time, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'Confirmed')",
       [new_schedule_id, oldAppt.patient_id, newSlot.dentist_id, nextService, newSlot.day, newApptDate, newSlot.time]
     );
-    await conn.execute("UPDATE schedules SET status = 'booked' WHERE id = ?", [new_schedule_id]);
+    await conn.execute("UPDATE schedules SET confirmed_count = confirmed_count + 1 WHERE id = ?", [new_schedule_id]);
+    const [updatedSched] = await conn.execute('SELECT confirmed_count, max_patients FROM schedules WHERE id = ?', [new_schedule_id]);
+    if (updatedSched[0].confirmed_count >= updatedSched[0].max_patients) {
+      await conn.execute("UPDATE schedules SET status = 'booked' WHERE id = ?", [new_schedule_id]);
+    }
     await conn.commit();
     res.json({ status: 'success', message: 'Appointment rescheduled.', appointment_id: result.insertId });
   } catch (err) {
@@ -427,8 +526,10 @@ app.get('/appointments/patient/:patient_id', async (req, res) => {
   const { patient_id } = req.params;
   try {
     const [rows] = await pool.execute(
-      `SELECT a.id, a.patient_id, a.dentist_id, u.name AS dentist_name, a.service, a.appointment_day, a.appointment_time, a.status, a.notes, a.created_at, a.updated_at
+      `SELECT a.id, a.patient_id, a.dentist_id, u.name AS dentist_name, a.service, a.appointment_day, a.appointment_time, a.status, a.notes, a.created_at, a.updated_at,
+              i.id AS invoice_id, i.amount, i.status AS invoice_status, i.invoice_number
        FROM appointments a LEFT JOIN users u ON a.dentist_id = u.id
+       LEFT JOIN invoices i ON i.appointment_id = a.id
        WHERE a.patient_id = ? ORDER BY a.created_at DESC`,
       [patient_id]
     );
@@ -509,12 +610,23 @@ const ensureTables = async () => {
       dentist_id INT NOT NULL,
       day VARCHAR(20) NOT NULL,
       time VARCHAR(10) NOT NULL,
+      max_patients INT NOT NULL DEFAULT 1,
+      confirmed_count INT NOT NULL DEFAULT 0,
       status ENUM('available','booked','blocked') DEFAULT 'available',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       UNIQUE KEY uniq_dentist_day_time (dentist_id, day, time),
       FOREIGN KEY (dentist_id) REFERENCES users(id) ON DELETE CASCADE
     )`);
+    try {
+      await pool.execute('ALTER TABLE schedules ADD COLUMN max_patients INT NOT NULL DEFAULT 1 AFTER time');
+    } catch {}
+    try {
+      await pool.execute('ALTER TABLE schedules ADD COLUMN confirmed_count INT NOT NULL DEFAULT 0 AFTER max_patients');
+    } catch {}
+    try {
+      await pool.execute("UPDATE schedules SET confirmed_count = (SELECT COUNT(*) FROM appointments WHERE schedule_id = schedules.id AND status IN ('Confirmed','Completed'))");
+    } catch {}
     await pool.execute(`CREATE TABLE IF NOT EXISTS services (
       id INT AUTO_INCREMENT PRIMARY KEY,
       service VARCHAR(255) NOT NULL,
@@ -579,6 +691,10 @@ const ensureTables = async () => {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
     )`);
+
+    try {
+      await pool.execute('ALTER TABLE pricing ADD COLUMN service_id INT DEFAULT NULL AFTER id');
+    } catch { /* column already exists */ }
 
     console.log('✅ All tables ensured on startup.');
   } catch (err) {

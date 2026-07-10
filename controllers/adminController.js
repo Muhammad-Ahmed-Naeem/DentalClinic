@@ -609,7 +609,9 @@ export const deleteGalleryImage = async (req, res) => {
 
 export const getPricing = async (req, res) => {
   try {
-    const [rows] = await pool.execute('SELECT * FROM pricing ORDER BY category ASC, service_name ASC');
+    const [rows] = await pool.execute(
+      'SELECT p.*, s.service AS service_display FROM pricing p LEFT JOIN services s ON p.service_id = s.id ORDER BY p.category ASC, p.service_name ASC'
+    );
     res.json({ status: 'success', pricing: rows });
   } catch (err) {
     res.status(500).json({ status: 'error', message: 'Error fetching pricing.' });
@@ -617,12 +619,17 @@ export const getPricing = async (req, res) => {
 };
 
 export const createPricing = async (req, res) => {
-  const { service_name, description, price, duration, category } = req.body;
-  if (!service_name || !price) return res.status(400).json({ status: 'error', message: 'Service name and price are required.' });
+  let { service_name, service_id, description, price, duration, category } = req.body;
+  if (!price) return res.status(400).json({ status: 'error', message: 'Price is required.' });
   try {
+    if (service_id) {
+      const [rows] = await pool.execute('SELECT service FROM services WHERE id = ?', [service_id]);
+      if (rows.length) service_name = rows[0].service;
+    }
+    if (!service_name) return res.status(400).json({ status: 'error', message: 'Service name is required.' });
     const [result] = await pool.execute(
-      'INSERT INTO pricing (service_name, description, price, duration, category) VALUES (?, ?, ?, ?, ?)',
-      [service_name, description || null, parseFloat(price), duration || null, category || null]
+      'INSERT INTO pricing (service_id, service_name, description, price, duration, category) VALUES (?, ?, ?, ?, ?, ?)',
+      [service_id || null, service_name, description || null, parseFloat(price), duration || null, category || null]
     );
     await logAudit(req.user.id, req.user.name, 'create_pricing', 'pricing', result.insertId, `Added pricing: ${service_name}`);
     res.json({ status: 'success', message: 'Pricing created.', id: result.insertId });
@@ -633,11 +640,15 @@ export const createPricing = async (req, res) => {
 
 export const updatePricing = async (req, res) => {
   const { id } = req.params;
-  const { service_name, description, price, duration, category } = req.body;
+  let { service_name, service_id, description, price, duration, category } = req.body;
   try {
+    if (service_id) {
+      const [rows] = await pool.execute('SELECT service FROM services WHERE id = ?', [service_id]);
+      if (rows.length) service_name = rows[0].service;
+    }
     await pool.execute(
-      'UPDATE pricing SET service_name = ?, description = ?, price = ?, duration = ?, category = ? WHERE id = ?',
-      [service_name, description, parseFloat(price), duration, category, id]
+      'UPDATE pricing SET service_id = ?, service_name = ?, description = ?, price = ?, duration = ?, category = ? WHERE id = ?',
+      [service_id || null, service_name, description, parseFloat(price), duration, category, id]
     );
     await logAudit(req.user.id, req.user.name, 'update_pricing', 'pricing', parseInt(id), `Updated pricing: ${service_name}`);
     res.json({ status: 'success', message: 'Pricing updated.' });
@@ -654,6 +665,19 @@ export const deletePricing = async (req, res) => {
     res.json({ status: 'success', message: 'Pricing deleted.' });
   } catch (err) {
     res.status(500).json({ status: 'error', message: 'Error deleting pricing.' });
+  }
+};
+
+export const getAdminServices = async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      `SELECT s.id, s.service, s.dentist_id, u.name AS dentist_name
+       FROM services s LEFT JOIN users u ON s.dentist_id = u.id
+       ORDER BY s.service ASC`
+    );
+    res.json({ status: 'success', services: rows });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Error fetching services.' });
   }
 };
 

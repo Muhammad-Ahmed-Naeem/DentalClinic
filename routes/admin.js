@@ -9,7 +9,7 @@ import {
   getFAQs, createFAQ, updateFAQ, deleteFAQ,
   getTestimonials, createTestimonial, updateTestimonial, deleteTestimonial,
   getGalleryImages, createGalleryImage, deleteGalleryImage,
-  getPricing, createPricing, updatePricing, deletePricing,
+  getPricing, createPricing, updatePricing, deletePricing, getAdminServices,
   getClinicSettings, updateClinicSettings,
   getAppointmentReports, getPatientStats, exportReports,
   createBackup, getAuditLogs,
@@ -73,6 +73,9 @@ router.get('/pricing', getPricing);
 router.post('/pricing', createPricing);
 router.put('/pricing/:id', updatePricing);
 router.delete('/pricing/:id', deletePricing);
+
+// ── Services (admin) ────────────────────────────────────────────────────────────
+router.get('/services', getAdminServices);
 
 // ── Settings ───────────────────────────────────────────────────────────────────
 router.get('/settings', getClinicSettings);
