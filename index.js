@@ -5,6 +5,8 @@ import pool from "./dbconfig.js";
 import cors from "cors";
 import bcrypt from "bcrypt";
 import { generateToken, authenticateToken } from "./middleware/auth.js";
+import { allowRoles } from "./middleware/roleCheck.js";
+import { maintenanceGuard, clearMaintenanceCache } from "./middleware/maintenance.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,6 +27,9 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// ── Maintenance Mode Guard ───────────────────────────────────────────────────
+app.use(maintenanceGuard);
 
 // ── Root: create users table ─────────────────────────────────────────────────
 app.get("/", async (req, res) => {
@@ -301,7 +306,7 @@ function getNextWeekdayDate(dayName) {
   return date.toISOString().split('T')[0];
 }    
  
-app.post('/appointments/pay', async (req, res) => {
+app.post('/appointments/pay', authenticateToken, allowRoles('receptionist'), async (req, res) => {
   const { appointment_id, invoice_id, payment_method, reference_number } = req.body;
   if (!appointment_id || !invoice_id) {
     return res.status(400).json({ status: 'error', message: 'appointment_id and invoice_id are required.' });
@@ -671,7 +676,7 @@ const ensureTables = async () => {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       UNIQUE KEY uniq_dentist_day_time (dentist_id, day, time),
       FOREIGN KEY (dentist_id) REFERENCES users(id) ON DELETE CASCADE
-    )`);
+    )`); 
     try {
       await pool.execute('ALTER TABLE schedules ADD COLUMN max_patients INT NOT NULL DEFAULT 1 AFTER time');
     } catch {}

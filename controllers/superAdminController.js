@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import os from 'os';
 import fs from 'fs';
 import path from 'path';
+import { clearMaintenanceCache } from '../middleware/maintenance.js';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1583,21 +1584,24 @@ export const getMaintenanceStatus = async (req, res) => {
 };
 
 export const toggleMaintenance = async (req, res) => {
-  const { maintenance_mode, maintenance_message } = req.body;
+  const { enabled, maintenance_mode, maintenance_message, message } = req.body;
+  const isMaintenance = enabled !== undefined ? enabled : !!maintenance_mode;
+  const msg = message !== undefined ? message : maintenance_message;
   try {
     await pool.execute(
       'INSERT INTO clinic_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?',
-      ['maintenance_mode', maintenance_mode ? 'true' : 'false', maintenance_mode ? 'true' : 'false']
+      ['maintenance_mode', isMaintenance ? 'true' : 'false', isMaintenance ? 'true' : 'false']
     );
-    if (maintenance_message !== undefined) {
+    if (msg !== undefined) {
       await pool.execute(
         'INSERT INTO clinic_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?',
-        ['maintenance_message', String(maintenance_message), String(maintenance_message)]
+        ['maintenance_message', String(msg), String(msg)]
       );
     }
     await logAudit(req.user.id, req.user.name, 'toggle_maintenance', 'clinic_settings', null,
-      `Maintenance mode: ${maintenance_mode ? 'ON' : 'OFF'}`);
-    res.json({ status: 'success', message: `Maintenance mode ${maintenance_mode ? 'enabled' : 'disabled'}.` });
+      `Maintenance mode: ${isMaintenance ? 'ON' : 'OFF'}`);
+    clearMaintenanceCache();
+    res.json({ status: 'success', message: `Maintenance mode ${isMaintenance ? 'enabled' : 'disabled'}.` });
   } catch (err) {
     console.error('toggleMaintenance error:', err.message);
     res.status(500).json({ status: 'error', message: 'Error toggling maintenance mode.' });

@@ -399,7 +399,7 @@ export const recordPayment = async (req, res) => {
       'INSERT INTO payments (invoice_id, amount, payment_method, payment_date, reference_number) VALUES (?, ?, ?, ?, ?)',
       [id, amount, payment_method || 'Cash', date, reference_number || null]
     );
-    const [inv] = await conn.execute('SELECT amount FROM invoices WHERE id = ? FOR UPDATE', [id]);
+    const [inv] = await conn.execute('SELECT amount, appointment_id FROM invoices WHERE id = ? FOR UPDATE', [id]);
     if (!inv.length) { await conn.rollback(); return res.status(404).json({ status: 'error', message: 'Invoice not found.' }); }
     const [paidRows] = await conn.execute('SELECT SUM(amount) AS paid FROM payments WHERE invoice_id = ?', [id]);
     const totalPaid = paidRows[0].paid || 0;
@@ -411,6 +411,21 @@ export const recordPayment = async (req, res) => {
     if (status === 'Paid') { updateFields.push('paid_date = ?'); updateParams.push(date); }
     updateParams.push(id);
     await conn.execute(`UPDATE invoices SET ${updateFields.join(', ')} WHERE id = ?`, updateParams);
+
+    if (status === 'Paid' && inv[0].appointment_id) {
+      const [appt] = await conn.execute('SELECT id, schedule_id, status FROM appointments WHERE id = ?', [inv[0].appointment_id]);
+      if (appt.length && appt[0].status === 'Pending') {
+        await conn.execute("UPDATE appointments SET status = 'Confirmed' WHERE id = ?", [inv[0].appointment_id]);
+        if (appt[0].schedule_id) {
+          await conn.execute("UPDATE schedules SET confirmed_count = confirmed_count + 1 WHERE id = ?", [appt[0].schedule_id]);
+          const [updatedSched] = await conn.execute('SELECT confirmed_count, max_patients FROM schedules WHERE id = ?', [appt[0].schedule_id]);
+          if (updatedSched[0].confirmed_count >= updatedSched[0].max_patients) {
+            await conn.execute("UPDATE schedules SET status = 'booked' WHERE id = ?", [appt[0].schedule_id]);
+          }
+        }
+      }
+    }
+
     await conn.commit();
     res.json({ status: 'success', message: 'Payment recorded.' });
   } catch (err) {
