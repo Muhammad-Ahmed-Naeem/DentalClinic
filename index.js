@@ -1,4 +1,6 @@
 import express from "express";
+import http from "http";
+import { Server } from "socket.io";
 import path from "path";
 import { fileURLToPath } from "url";
 import pool from "./dbconfig.js";
@@ -20,8 +22,22 @@ import {
   getPublicTeam, getPublicBlogPost, getHomeContent,
   createTables
 } from "./controllers/adminController.js";
+import {
+  setupSocketIO,
+  getOrCreateConversation,
+  getPatientConversations,
+  getAllConversations,
+  getMessages,
+  markAsRead,
+  closeConversation,
+  reopenConversation
+} from "./controllers/chatController.js";
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: '*', methods: ['GET', 'POST'] }
+});
 const PORT = 3000;
 
 app.use(cors());
@@ -182,6 +198,16 @@ app.use('/api/super-admin', superAdminRoutes);
 app.use('/api/dentist', dentistRoutes);
 app.use('/api/receptionist', receptionistRoutes);
 app.use('/api/patient', patientRoutes);
+
+// ── Chat Routes ──────────────────────────────────────────────────────────────
+
+app.get('/api/chat/conversations', authenticateToken, allowRoles('patient'), getPatientConversations);
+app.get('/api/chat/admin/conversations', authenticateToken, allowRoles('admin', 'super_admin'), getAllConversations);
+app.post('/api/chat/conversations', authenticateToken, allowRoles('patient'), getOrCreateConversation);
+app.get('/api/chat/conversations/:id/messages', authenticateToken, getMessages);
+app.put('/api/chat/messages/read', authenticateToken, markAsRead);
+app.put('/api/chat/conversations/:id/close', authenticateToken, allowRoles('admin', 'super_admin'), closeConversation);
+app.put('/api/chat/conversations/:id/reopen', authenticateToken, allowRoles('admin', 'super_admin'), reopenConversation);
 
 // ── Public Routes ──────────────────────────────────────────────────────────────
 
@@ -646,7 +672,7 @@ app.delete('/delete/service/:id', async (req, res) => {
     res.status(500).json({ status: 'error', message: 'Error deleting service.' });
   }
 });
-
+ 
 // ── Auto-create tables on startup ─────────────────────────────────────────────
 
 const ensureTables = async () => {
@@ -764,6 +790,28 @@ const ensureTables = async () => {
       await pool.execute('ALTER TABLE pricing ADD COLUMN service_id INT DEFAULT NULL AFTER id');
     } catch { /* column already exists */ }
 
+    // ── Chat Tables ───────────────────────────────────────────────────────
+    await pool.execute(`CREATE TABLE IF NOT EXISTS conversations (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      patient_id INT NOT NULL,
+      subject VARCHAR(255) DEFAULT 'Support Request',
+      status ENUM('open','closed') DEFAULT 'open',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (patient_id) REFERENCES users(id) ON DELETE CASCADE
+    )`);
+
+    await pool.execute(`CREATE TABLE IF NOT EXISTS messages (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      conversation_id INT NOT NULL,
+      sender_id INT NOT NULL,
+      content TEXT NOT NULL,
+      is_read BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+      FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
+    )`);
+
     console.log('✅ All tables ensured on startup.');
   } catch (err) {
     console.error('❌ Error ensuring tables:', err.message);
@@ -772,7 +820,8 @@ const ensureTables = async () => {
 
 // ── Start Server ─────────────────────────────────────────────────────────────
 
-app.listen(PORT, async () => {
+server.listen(PORT, async () => {
   console.log(`Server is running on http://localhost:${PORT}`);
   await ensureTables();
+  setupSocketIO(io);
 });

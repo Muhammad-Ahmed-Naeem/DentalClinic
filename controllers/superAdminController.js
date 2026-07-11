@@ -1570,11 +1570,33 @@ export const getMaintenanceStatus = async (req, res) => {
     );
     const settings = {};
     rows.forEach(r => { settings[r.setting_key] = r.setting_value; });
+
+    const enabled = settings.maintenance_mode === 'true' || settings.maintenance_mode === '1';
+    const message = settings.maintenance_message || '';
+
+    const [historyRows] = await pool.execute(
+      "SELECT id, action, details, user_name, created_at FROM audit_logs WHERE action = 'toggle_maintenance' ORDER BY created_at DESC LIMIT 20"
+    );
+
+    const history = historyRows.map(row => ({
+      id: row.id,
+      action: row.action,
+      enabled: row.details?.includes('ON') || false,
+      message: undefined,
+      created_at: row.created_at,
+      user_name: row.user_name,
+    }));
+
+    const lastEvent = history[0] || null;
+
     res.json({
       status: 'success',
       data: {
-        maintenanceMode: settings.maintenance_mode === 'true' || settings.maintenance_mode === '1',
-        maintenanceMessage: settings.maintenance_message || ''
+        enabled,
+        message,
+        lastToggledAt: lastEvent?.created_at || null,
+        lastToggledBy: lastEvent?.user_name || null,
+        history,
       }
     });
   } catch (err) {
